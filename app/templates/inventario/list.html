@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Inventario{% endblock %}
+{% block content %}
+<header class="page-header row">
+  <div>
+    <h1>Inventario</h1>
+    <p class="muted">Stock de insumos y materias primas</p>
+  </div>
+  <a class="btn primary" href="/inventario/nuevo-item">+ Nuevo insumo</a>
+</header>
+
+{% if alertas %}
+<div class="alert alert-error">
+  ⚠️ <strong>{{ alertas|length }} insumo(s) por debajo del stock mínimo:</strong>
+  {{ alertas | map(attribute='nombre') | join(', ') }}
+</div>
+{% endif %}
+
+{% if items %}
+<section class="panel">
+  <table>
+    <thead>
+      <tr>
+        <th>Insumo</th><th>Unidad</th>
+        <th class="num">Stock actual</th><th class="num">Stock mínimo</th>
+        <th class="num">Costo promedio</th><th class="num">Valor total</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+      {% set alerta = item.stock_minimo is not none and item.stock_actual <= item.stock_minimo %}
+      <tr class="{% if alerta %}row-alerta{% endif %}">
+        <td>
+          {{ item.nombre }}
+          {% if alerta %}<span class="badge pending" style="margin-left:6px">bajo</span>{% endif %}
+        </td>
+        <td>{{ item.unidad }}</td>
+        <td class="num">{{ "%.2f" | format(item.stock_actual | float) }}</td>
+        <td class="num">{{ "%.2f" | format(item.stock_minimo | float) if item.stock_minimo else "—" }}</td>
+        <td class="num">{{ item.costo_promedio | cop }}</td>
+        <td class="num">{{ (item.stock_actual * item.costo_promedio) | cop }}</td>
+        <td class="actions-cell">
+          <a class="btn" href="/inventario/{{ item.id }}/movimiento" title="Registrar entrada/salida">± Mov.</a>
+          <a class="btn" href="/inventario/{{ item.id }}/editar">Editar</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="5" class="num"><strong>Valor total inventario</strong></td>
+        <td class="num"><strong>{{ items | map(attribute='stock_actual') | map('float') | list | sum | cop }}</strong></td>
+        <td></td>
+      </tr>
+    </tfoot>
+  </table>
+</section>
+{% else %}
+<div class="empty-state">
+  <p>Aún no hay insumos registrados.</p>
+  <a class="btn primary" href="/inventario/nuevo-item">+ Agregar primer insumo</a>
+</div>
+{% endif %}
+{% endblock %}

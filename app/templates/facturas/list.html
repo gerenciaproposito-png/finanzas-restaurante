@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Facturas pendientes{% endblock %}
+{% block content %}
+<header class="page-header">
+  <h1>Facturas de Drive</h1>
+  <p class="muted">Fotos sincronizadas desde tu carpeta de Google Drive pendientes de revisión</p>
+</header>
+
+{% if pendientes %}
+<section class="panel">
+  <table>
+    <thead>
+      <tr><th>Archivo</th><th>Sincronizado</th><th>Estado</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for f in pendientes %}
+      <tr>
+        <td>{{ f.nombre_archivo }}</td>
+        <td>{{ f.fecha_sync.strftime("%d/%m/%Y %H:%M") }}</td>
+        <td><span class="badge pending">Pendiente</span></td>
+        <td>
+          <a class="btn primary" href="/facturas/{{ f.id }}/revisar">Revisar →</a>
+          <form method="post" action="/facturas/{{ f.id }}/descartar" style="display:inline" onsubmit="return confirm('¿Descartar esta factura?')">
+            <button class="btn-link danger">Descartar</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% else %}
+<div class="empty-state">
+  <p>No hay facturas pendientes de revisión.</p>
+  <p class="muted">
+    Cuando agregues fotos a tu carpeta de Drive y el servidor sincronice, aparecerán aquí.
+    También puedes ir a <a href="/configuracion">Configuración</a> para sincronizar manualmente.
+  </p>
+</div>
+{% endif %}
+{% endblock %}

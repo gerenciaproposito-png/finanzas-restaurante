@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% block title %}Gastos{% endblock %}
+{% block content %}
+
+<header class="page-header row">
+  <div>
+    <h1>Gastos</h1>
+    <p class="muted">Facturas de proveedores y egresos confirmados</p>
+  </div>
+  <a class="btn primary" href="/gastos/nuevo">+ Nuevo gasto</a>
+</header>
+
+{# ── Filtros ── #}
+<section class="panel filter-bar">
+  <form method="get" action="/gastos" class="filter-form">
+    <label>Desde
+      <input type="date" name="desde" value="{{ desde }}">
+    </label>
+    <label>Hasta
+      <input type="date" name="hasta" value="{{ hasta }}">
+    </label>
+    <label>Proveedor
+      <select name="proveedor_id" style="min-width:140px">
+        <option value="">Todos</option>
+        {% for p in proveedores %}
+        <option value="{{ p.id }}" {% if proveedor_id == p.id|string %}selected{% endif %}>{{ p.nombre }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Categoría
+      <select name="categoria_id" style="min-width:130px">
+        <option value="">Todas</option>
+        {% for c in categorias %}
+        <option value="{{ c.id }}" {% if categoria_id == c.id|string %}selected{% endif %}>{{ c.nombre }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Medio de pago
+      <select name="medio_pago">
+        <option value="">Todos</option>
+        {% for val, label in medios_pago %}
+        <option value="{{ val }}" {% if medio_pago == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Estado
+      <select name="estado_pago">
+        <option value="">Todos</option>
+        {% for val, label in estados_pago %}
+        <option value="{{ val }}" {% if estado_pago == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit" class="btn primary">Filtrar</button>
+    {% if desde or hasta or categoria_id or proveedor_id or medio_pago or estado_pago %}
+    <a href="/gastos" class="btn">✕ Limpiar</a>
+    {% endif %}
+  </form>
+
+  {% if gastos %}
+  <div class="filter-total">
+    <span class="muted">{{ gastos|length }} registro(s)</span>
+    <span class="negative" style="font-family:Georgia,serif;font-size:15px;font-weight:700">
+      Total: {{ total_filtrado | cop }}
+    </span>
+    {% if total_pendiente > 0 %}
+    <span class="badge" style="background:#fff8e0;color:#7a4e10;border:1px solid #e8c870;font-size:11px">
+      Por pagar: {{ total_pendiente | cop }}
+    </span>
+    {% endif %}
+  </div>
+  {% endif %}
+</section>
+
+{# ── Tabla ── #}
+{% if gastos %}
+<section class="panel" style="border-radius:0 0 12px 12px;margin-top:0;border-top:none">
+  <table>
+    <thead>
+      <tr>
+        <th>Fecha</th>
+        <th>Proveedor</th>
+        <th>Categoría</th>
+        <th>N° Factura</th>
+        <th>Tipo doc.</th>
+        <th>Medio pago</th>
+        <th>Estado</th>
+        <th class="num">Subtotal</th>
+        <th class="num">IVA</th>
+        <th class="num">Total</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for g in gastos %}
+      <tr>
+        <td style="white-space:nowrap;color:var(--muted);font-size:13px">{{ g.fecha }}</td>
+        <td><strong>{{ g.proveedor.nombre if g.proveedor else "—" }}</strong></td>
+        <td style="font-size:12.5px;color:var(--muted)">{{ g.categoria.nombre if g.categoria else "—" }}</td>
+        <td style="font-size:12px;font-family:monospace;color:var(--muted)">{{ g.num_factura or "—" }}</td>
+
+        {# Tipo documento #}
+        <td>
+          {% if g.tipo_documento %}
+            {% set tdoc = {
+              'factura_e':    ('Fact. electrónica', '#e8f4fd', '#1a6a9a'),
+              'factura_papel':('Fact. papel',        '#f3f0fd', '#5a3a9a'),
+              'ticket':       ('Ticket / POS',       '#f0fdf4', '#1e6b3e'),
+              'recibo':       ('Recibo',              '#fdf8e0', '#7a5a10'),
+              'sin_soporte':  ('Sin soporte',         '#fff0ef', '#8a2820'),
+            } %}
+            {% set info = tdoc.get(g.tipo_documento, (g.tipo_documento, '#f0f0f0', '#444')) %}
+            <span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:{{ info[1] }};color:{{ info[2] }}">
+              {{ info[0] }}
+            </span>
+          {% else %}
+            <span style="color:var(--muted);font-size:12px">—</span>
+          {% endif %}
+        </td>
+
+        {# Medio pago #}
+        <td>
+          {% if g.medio_pago %}
+            {% set mpago = {
+              'efectivo':           ('💵 Efectivo',         '#f0fdf4', '#1e6b3e'),
+              'transferencia':      ('⟳ Transferencia',    '#e8f4fd', '#1a6a9a'),
+              'tarjeta_debito':     ('💳 T. débito',        '#f3f0fd', '#5a3a9a'),
+              'tarjeta_credito':    ('💳 T. crédito',       '#fdf0e8', '#7a3a10'),
+              'credito_proveedor':  ('📋 Crédito prov.',    '#fff0ef', '#8a2820'),
+            } %}
+            {% set info = mpago.get(g.medio_pago, (g.medio_pago, '#f0f0f0', '#444')) %}
+            <span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:{{ info[1] }};color:{{ info[2] }}">
+              {{ info[0] }}
+            </span>
+          {% else %}
+            <span style="color:var(--muted);font-size:12px">—</span>
+          {% endif %}
+        </td>
+
+        {# Estado pago #}
+        <td>
+          {% set ep = g.estado_pago or 'pagado' %}
+          {% if ep == 'pagado' %}
+            <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:700;background:#edfaf4;color:#145c32;border:1px solid #a7f3d0">
+              ✓ Pagado
+            </span>
+          {% elif ep == 'pendiente' %}
+            <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:700;background:#fff8e0;color:#7a4e10;border:1px solid #e8c870">
+              ⏳ Pendiente
+            </span>
+          {% else %}
+            <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:700;background:#fff0ef;color:#8a2820;border:1px solid #fecdd3">
+              📋 Crédito
+            </span>
+          {% endif %}
+        </td>
+
+        <td class="num" style="color:var(--muted);font-size:13px">{{ g.subtotal | cop }}</td>
+        <td class="num" style="color:var(--muted);font-size:13px">{{ g.iva | cop }}</td>
+        <td class="num"><strong style="font-family:Georgia,serif;font-size:14px">{{ g.total | cop }}</strong></td>
+        <td style="white-space:nowrap">
+          <a class="btn" href="/gastos/{{ g.id }}/editar" style="padding:5px 12px;font-size:12px">Editar</a>
+          <form method="post" action="/gastos/{{ g.id }}/eliminar"
+                onsubmit="return confirm('¿Eliminar este gasto?')" style="display:inline">
+            <button class="btn-link danger" style="font-size:12px;margin-left:6px">Eliminar</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+{% else %}
+<div class="empty-state">
+  <p style="font-size:16px;font-weight:600;color:var(--text)">No hay gastos para el filtro seleccionado.</p>
+  <p>Ajusta los filtros o registra el primero.</p>
+  <a class="btn primary" href="/gastos/nuevo">+ Registrar gasto</a>
+</div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}Finanzas Restaurante{% endblock %}</title>
+  <link rel="stylesheet" href="/static/css/style.css?v=4" />
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo">P</div>
+      <div class="brand-name">Propósito</div>
+      <div class="brand-sub">by Patrono</div>
+    </div>
+    <nav>
+      <div class="nav-group-label">Principal</div>
+      <a href="/" class="{% if request.url.path == '/' %}active{% endif %}">Dashboard</a>
+      <a href="/reportes" class="{% if request.url.path.startswith('/reportes') %}active{% endif %}">Reportes</a>
+
+      <div class="nav-group-label">Registros</div>
+      <a href="/ventas" class="{% if request.url.path.startswith('/ventas') %}active{% endif %}">Ventas</a>
+      <a href="/gastos" class="{% if request.url.path.startswith('/gastos') %}active{% endif %}">Gastos</a>
+      <a href="/inventario" class="{% if request.url.path.startswith('/inventario') %}active{% endif %}">Inventario</a>
+      <a href="/nomina" class="{% if request.url.path.startswith('/nomina') %}active{% endif %}">Nómina</a>
+
+      <div class="nav-group-label">Drive & Facturas</div>
+      <a href="/facturas" class="{% if request.url.path.startswith('/facturas') %}active{% endif %}">
+        Facturas pendientes
+        {% if pending_count is defined and pending_count > 0 %}
+          <span class="nav-badge">{{ pending_count }}</span>
+        {% endif %}
+      </a>
+      <a href="/ventas-pendientes" class="{% if request.url.path.startswith('/ventas-pendientes') %}active{% endif %}">
+        Ventas pendientes
+      </a>
+      <a href="/precios" class="{% if request.url.path.startswith('/precios') %}active{% endif %}">Precios</a>
+
+      <div class="nav-group-label">Catálogos</div>
+      <a href="/proveedores" class="{% if request.url.path.startswith('/proveedores') %}active{% endif %}">Proveedores</a>
+      <a href="/categorias" class="{% if request.url.path.startswith('/categorias') %}active{% endif %}">Categorías</a>
+
+      <div class="nav-group-label">Sistema</div>
+      <a href="/configuracion" class="{% if request.url.path.startswith('/configuracion') %}active{% endif %}">Configuración</a>
+    </nav>
+    <div class="footer">Régimen SIMPLE · COP · Pereira</div>
+  </aside>
+
+  <main class="content">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

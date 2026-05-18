@@ -1,0 +1,379 @@
+{% extends "base.html" %}
+{% block title %}Revisar factura{% endblock %}
+{% block content %}
+<header class="page-header row">
+  <div>
+    <h1>Revisar factura</h1>
+    <p class="muted">{{ factura.nombre_archivo }}</p>
+  </div>
+  <a href="/facturas" class="btn">← Volver</a>
+</header>
+
+{% if multi_invoice %}
+{# ── Panel de múltiples facturas ── #}
+{# Parsear datos_json directamente en el template con notación de corchetes para evitar colisión con dict.items() #}
+{% set all_invoices = factura.datos_json | from_json %}
+<div style="background:linear-gradient(135deg,#1e0e06,#2e1608);border:2px solid var(--gold);border-radius:14px;padding:24px;margin-bottom:24px">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+    <span style="font-size:28px">✂️</span>
+    <div>
+      <h2 style="margin:0;color:var(--gold-light);font-family:Georgia,serif;font-size:18px">
+        Este PDF contiene {{ invoice_count }} facturas separadas
+      </h2>
+      <p style="margin:4px 0 0;color:var(--muted);font-size:13px">
+        Divídelas para revisarlas y confirmarlas de forma independiente
+      </p>
+    </div>
+  </div>
+
+  {# Tabla resumen — usa inv['key'] para evitar que Jinja2 resuelva inv.items → dict.items() #}
+  <div style="overflow-x:auto;margin-bottom:20px">
+    <table style="min-width:500px;font-size:13px">
+      <thead>
+        <tr>
+          <th style="text-align:left;padding:8px 12px;border-bottom:1px solid var(--border);color:var(--muted)">#</th>
+          <th style="text-align:left;padding:8px 12px;border-bottom:1px solid var(--border);color:var(--muted)">Proveedor</th>
+          <th style="text-align:left;padding:8px 12px;border-bottom:1px solid var(--border);color:var(--muted)">Fecha</th>
+          <th style="text-align:left;padding:8px 12px;border-bottom:1px solid var(--border);color:var(--muted)">N° Factura</th>
+          <th style="text-align:right;padding:8px 12px;border-bottom:1px solid var(--border);color:var(--muted)">Ítems</th>
+          <th style="text-align:right;padding:8px 12px;border-bottom:1px solid var(--border);color:var(--muted)">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for inv in all_invoices %}
+        <tr style="border-bottom:1px solid var(--border-light)">
+          <td style="padding:10px 12px;color:var(--gold);font-weight:700">{{ loop.index }}</td>
+          <td style="padding:10px 12px;font-weight:600;color:var(--text)">{{ inv['proveedor'] or '—' }}</td>
+          <td style="padding:10px 12px;color:var(--muted)">{{ inv['fecha'] or '—' }}</td>
+          <td style="padding:10px 12px;color:var(--muted)">{{ inv['num_factura'] or '—' }}</td>
+          <td style="padding:10px 12px;text-align:right;color:var(--muted)">{{ (inv['items'] or []) | length }}</td>
+          <td style="padding:10px 12px;text-align:right;font-family:Georgia,serif;font-weight:700;color:var(--gold-light)">
+            {% if inv['total'] %}{{ inv['total'] | cop }}{% else %}—{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+    <form method="post" action="/facturas/{{ factura.id }}/dividir" style="margin:0">
+      <button type="submit" class="btn primary" style="font-size:14px;padding:10px 20px">
+        ✂️ Dividir en {{ invoice_count }} facturas separadas
+      </button>
+    </form>
+    <span style="color:var(--muted);font-size:12px">
+      o desplázate abajo para revisar y confirmar la primera factura manualmente
+    </span>
+  </div>
+</div>
+{% endif %}
+
+<div class="revisar-layout">
+  <!-- PDF / Imagen -->
+  <div class="foto-panel">
+    {% if imagen_url %}
+      {% if is_pdf %}
+        <iframe src="{{ imagen_url }}" style="width:100%;height:800px;border:none;display:block;" title="Factura PDF"></iframe>
+      {% else %}
+        <img src="{{ imagen_url }}" alt="Factura" class="factura-img">
+      {% endif %}
+    {% else %}
+      <div class="sin-foto">Sin imagen disponible</div>
+    {% endif %}
+  </div>
+
+  <!-- Formulario -->
+  <form method="post" action="/facturas/{{ factura.id }}/confirmar" class="datos-panel">
+
+    <!-- Datos generales -->
+    <div class="panel">
+      <h2>Datos generales</h2>
+      <div class="form">
+        <label>Fecha
+          <input type="date" name="fecha" value="{{ datos.fecha or hoy }}" required>
+        </label>
+        <label>N° Factura
+          <input type="text" name="num_factura" value="{{ datos.num_factura or '' }}">
+        </label>
+        <label>Proveedor
+          <input type="text" name="proveedor" value="{{ datos.proveedor or '' }}" required>
+        </label>
+        <label>NIT proveedor
+          <input type="text" name="nit_proveedor" value="{{ datos.nit_proveedor or '' }}">
+        </label>
+        <label>Subtotal (sin IVA)
+          <input type="number" id="f-subtotal" name="subtotal" step="1" value="{{ datos.subtotal or 0 }}">
+        </label>
+        <label>Descuento total
+          <input type="number" id="f-descuento" name="descuento" step="1" value="{{ datos.descuento_total or 0 }}">
+        </label>
+        <label>IVA / Impoconsumo
+          <input type="number" id="f-iva" name="iva" step="1" value="{{ datos.iva or 0 }}">
+        </label>
+        <label>Total factura <span style="color:var(--negative);font-size:11px">← valor real pagado</span>
+          <input type="number" id="f-total" name="total" step="1" value="{{ datos.total or 0 }}" required>
+        </label>
+        <label>Tipo de documento
+          <select name="tipo_documento">
+            <option value="">— Seleccionar —</option>
+            <option value="factura_e">Factura electrónica</option>
+            <option value="factura_papel">Factura papel</option>
+            <option value="ticket">Ticket / POS</option>
+            <option value="recibo">Recibo</option>
+            <option value="sin_soporte">Sin soporte</option>
+          </select>
+        </label>
+        <label>Medio de pago
+          <select name="medio_pago">
+            <option value="">— Seleccionar —</option>
+            <option value="efectivo">Efectivo</option>
+            <option value="transferencia">Transferencia</option>
+            <option value="tarjeta_debito">Tarjeta débito</option>
+            <option value="tarjeta_credito">Tarjeta crédito</option>
+            <option value="credito_proveedor">Crédito proveedor</option>
+          </select>
+        </label>
+        <label>Estado de pago
+          <select name="estado_pago">
+            <option value="pagado" selected>Pagado</option>
+            <option value="pendiente">Pendiente</option>
+            <option value="credito">Crédito</option>
+          </select>
+        </label>
+        <label class="full">Notas
+          <textarea name="notas" rows="2">{{ datos.notas or '' }}</textarea>
+        </label>
+      </div>
+    </div>
+
+    <!-- Ítems -->
+    <div class="panel">
+      <h2>Ítems y precios</h2>
+      <p class="muted" style="margin-bottom:10px">Precio unitario es sin descuento. El subtotal se calcula automáticamente: (precio − descuento) × cantidad.</p>
+
+      <div style="overflow-x:auto">
+      <table id="items-table" style="min-width:700px">
+        <thead>
+          <tr>
+            <th style="min-width:160px">Producto</th>
+            <th>Cantidad</th>
+            <th>Unidad</th>
+            <th>Precio unit.</th>
+            <th>Descuento unit.</th>
+            <th>Subtotal</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="items-body">
+          {% for item in items %}
+          <tr class="item-row">
+            <td><input class="item-input" type="text" name="item_nombre" value="{{ item.nombre }}" placeholder="Producto" required></td>
+            <td><input class="item-input num" type="number" name="item_cantidad" value="{{ item.cantidad }}" step="0.001" min="0" oninput="recalcRow(this.closest('tr'))"></td>
+            <td><input class="item-input" type="text" name="item_unidad" value="{{ item.unidad or '' }}" placeholder="kg/und"></td>
+            <td><input class="item-input num" type="number" name="item_precio_unitario" value="{{ item.precio_unitario }}" step="1" min="0" oninput="recalcRow(this.closest('tr'))"></td>
+            <td><input class="item-input num" type="number" name="item_descuento_unitario" value="{{ item.descuento_unitario or 0 }}" step="1" min="0" oninput="recalcRow(this.closest('tr'))"></td>
+            <td><input class="item-input num" type="number" name="item_subtotal" value="{{ item.subtotal }}" step="1" min="0" readonly></td>
+            <td><button type="button" class="btn-link danger" onclick="this.closest('tr').remove();actualizarTotales()">✕</button></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+
+      <button type="button" class="btn" style="margin-top:12px" onclick="addRow()">+ Agregar producto</button>
+
+      <!-- Totalizador inteligente -->
+      <div id="totalizador" style="margin-top:16px;border-top:2px solid var(--border);padding-top:14px">
+        <table style="width:100%;max-width:420px;margin-left:auto;font-size:14px">
+          <tr>
+            <td style="padding:3px 16px 3px 0;color:var(--muted)">Suma de ítems (neto)</td>
+            <td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600" id="t-suma">$ 0</td>
+          </tr>
+          <tr id="tr-iva" style="display:none">
+            <td style="padding:3px 16px 3px 0;color:var(--muted)">+ IVA / Impoconsumo</td>
+            <td style="text-align:right;font-variant-numeric:tabular-nums" id="t-iva-val">$ 0</td>
+          </tr>
+          <tr style="border-top:1px solid var(--border)">
+            <td style="padding:6px 16px 3px 0;font-weight:600">Total calculado</td>
+            <td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:700" id="t-calculado">$ 0</td>
+          </tr>
+          <tr>
+            <td style="padding:3px 16px 3px 0;color:var(--muted)">Total declarado factura</td>
+            <td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600" id="t-declarado">$ 0</td>
+          </tr>
+        </table>
+        <div id="t-alerta" style="margin-top:10px;padding:10px 14px;border-radius:6px;font-size:13px;display:none"></div>
+      </div>
+    </div>
+
+    <!-- Acciones -->
+    <div class="form-actions" style="margin-top:8px">
+      <form method="post" action="/facturas/{{ factura.id }}/descartar" style="margin:0"
+            onsubmit="return confirm('¿Descartar esta factura sin guardar?')">
+        <button type="submit" class="btn danger-btn">Descartar</button>
+      </form>
+      <button type="button" class="btn" onclick="document.getElementById('modal-reprocesar').style.display='flex'">
+        🤖 Re-procesar con IA
+      </button>
+      <button type="submit" class="btn primary">✅ Confirmar y guardar</button>
+    </div>
+  </form>
+</div>
+
+{# ── Modal Re-procesar ── #}
+<div id="modal-reprocesar" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:9000;align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--surface);border-radius:14px;width:100%;max-width:560px;box-shadow:0 24px 60px rgba(0,0,0,0.5);overflow:hidden">
+    <div style="background:linear-gradient(135deg,#2e1608,#1a0a04);padding:20px 24px;border-bottom:2px solid var(--gold)">
+      <h2 style="margin:0;color:var(--gold-light);font-family:Georgia,serif;font-size:18px">🤖 Re-procesar con IA</h2>
+      <p style="margin:4px 0 0;color:var(--muted);font-size:13px">Cuéntale a la IA dónde está el error para que lo corrija</p>
+    </div>
+    <form method="post" action="/facturas/{{ factura.id }}/reprocesar" style="padding:24px">
+      <div style="margin-bottom:16px">
+        <label style="font-size:13px;font-weight:600;color:var(--text);display:block;margin-bottom:8px">
+          ¿Qué debe corregir la IA? <span style="color:var(--muted);font-weight:400">(opcional pero muy útil)</span>
+        </label>
+        <textarea name="hint" rows="5" style="width:100%;box-sizing:border-box;font-size:13px;line-height:1.5;resize:vertical;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface-warm);color:var(--text)"
+          placeholder="Ejemplos:
+• El total correcto es $344.880, no los precios del catálogo
+• Esta factura de Makro tiene solo 12 artículos, el TOTAL al final del ticket es $344.880
+• Hay 2 facturas separadas, la segunda comienza después del sello
+• Los ítems que extrajo son precios de lista, usa los subtotales reales"></textarea>
+      </div>
+      <div style="background:var(--surface-warm);border-radius:8px;border:1px solid var(--border-light);padding:12px 14px;margin-bottom:20px;font-size:12px;color:var(--muted)">
+        💡 <strong>Tip:</strong> Entre más específico seas, mejor. Puedes indicar el total correcto, señalar qué campo está mal, o explicar el formato del documento. La IA releerá la imagen con tus instrucciones como contexto prioritario.
+      </div>
+      <div style="display:flex;gap:12px;justify-content:flex-end">
+        <button type="button" id="btn-cancelar-repro" class="btn" onclick="document.getElementById('modal-reprocesar').style.display='none'">Cancelar</button>
+        <button type="submit" id="btn-reprocesar-submit" class="btn primary">🤖 Re-procesar ahora</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{# ── Overlay de carga ── #}
+<div id="overlay-cargando" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:20px">
+  <div style="width:52px;height:52px;border:4px solid rgba(201,146,42,0.3);border-top-color:var(--gold);border-radius:50%;animation:spin 0.9s linear infinite"></div>
+  <div style="color:var(--gold-light);font-family:Georgia,serif;font-size:18px;font-weight:700">Analizando con IA…</div>
+  <div style="color:var(--muted);font-size:13px">Esto puede tomar 15–30 segundos</div>
+</div>
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+
+<script>
+document.getElementById('modal-reprocesar').addEventListener('click', function(e) {
+  if (e.target === this) this.style.display = 'none';
+});
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    const m = document.getElementById('modal-reprocesar');
+    if (m.style.display !== 'none') m.style.display = 'none';
+  }
+});
+document.getElementById('modal-reprocesar').querySelector('form').addEventListener('submit', function() {
+  document.getElementById('modal-reprocesar').style.display = 'none';
+  const overlay = document.getElementById('overlay-cargando');
+  overlay.style.display = 'flex';
+  document.getElementById('btn-reprocesar-submit').disabled = true;
+  document.getElementById('btn-cancelar-repro').disabled = true;
+});
+</script>
+
+<script>
+const fmt = n => '$ ' + Math.round(n).toLocaleString('es-CO');
+
+function recalcRow(row) {
+  const cant  = parseFloat(row.querySelector('[name="item_cantidad"]').value) || 0;
+  const precio = parseFloat(row.querySelector('[name="item_precio_unitario"]').value) || 0;
+  const desc  = parseFloat(row.querySelector('[name="item_descuento_unitario"]').value) || 0;
+  const sub   = row.querySelector('[name="item_subtotal"]');
+  sub.value = Math.round((precio - desc) * cant);
+  actualizarTotales();
+}
+
+function actualizarTotales() {
+  const subtotales = [...document.querySelectorAll('[name="item_subtotal"]')]
+                       .map(i => parseFloat(i.value) || 0);
+  const sumaItems  = subtotales.reduce((a, b) => a + b, 0);
+  const iva        = parseFloat(document.getElementById('f-iva').value) || 0;
+  const total      = parseFloat(document.getElementById('f-total').value) || 0;
+  const calculado  = sumaItems + iva;
+  const diff       = calculado - total;
+  const pct        = total > 0 ? Math.abs(diff) / total : 0;
+
+  document.getElementById('t-suma').textContent      = fmt(sumaItems);
+  document.getElementById('t-calculado').textContent = fmt(calculado);
+  document.getElementById('t-declarado').textContent = fmt(total);
+
+  const trIva = document.getElementById('tr-iva');
+  if (iva > 0) {
+    trIva.style.display = '';
+    document.getElementById('t-iva-val').textContent = fmt(iva);
+  } else {
+    trIva.style.display = 'none';
+  }
+
+  const alerta = document.getElementById('t-alerta');
+  if (total === 0) { alerta.style.display = 'none'; return; }
+
+  alerta.style.display = '';
+
+  if (Math.abs(diff) <= 500) {
+    alerta.style.cssText = 'margin-top:10px;padding:10px 14px;border-radius:6px;font-size:13px;background:#f0fdf4;color:#15803d;border:1px solid #86efac';
+    alerta.innerHTML = '✅ <strong>Cuadra.</strong> Los ítems coinciden con el total de la factura.';
+  } else if (diff < 0 && Math.abs(diff) <= iva + 500) {
+    alerta.style.cssText = 'margin-top:10px;padding:10px 14px;border-radius:6px;font-size:13px;background:#f0fdf4;color:#15803d;border:1px solid #86efac';
+    alerta.innerHTML = '✅ <strong>Cuadra (con IVA).</strong> Los ítems están sin IVA — eso es normal. El total incluye ' + fmt(iva) + ' de IVA.';
+  } else if (diff > 0 && pct < 0.35) {
+    const descItems = [...document.querySelectorAll('[name="item_descuento_unitario"]')]
+                        .reduce((a,i)=> a + (parseFloat(i.value)||0), 0);
+    if (descItems > 0) {
+      alerta.style.cssText = 'margin-top:10px;padding:10px 14px;border-radius:6px;font-size:13px;background:#fefce8;color:#713f12;border:1px solid #fde68a';
+      alerta.innerHTML = '⚠️ La suma excede el total en <strong>' + fmt(diff) + '</strong>. Revisa los descuentos por ítem o ajusta el campo "Descuento total".';
+    } else {
+      alerta.style.cssText = 'margin-top:10px;padding:10px 14px;border-radius:6px;font-size:13px;background:#fefce8;color:#713f12;border:1px solid #fde68a';
+      alerta.innerHTML = '⚠️ Los ítems suman <strong>' + fmt(diff) + '</strong> más que el total. Puede haber descuentos sin registrar (ej: "Tu Ahorro"). Ajusta los descuentos por ítem.';
+    }
+  } else if (diff < 0) {
+    alerta.style.cssText = 'margin-top:10px;padding:10px 14px;border-radius:6px;font-size:13px;background:#fefce8;color:#713f12;border:1px solid #fde68a';
+    alerta.innerHTML = '⚠️ Faltan ítems por <strong>' + fmt(Math.abs(diff)) + '</strong>. Puede que Claude no haya leído todos los productos. Usa <em>Re-procesar con IA</em> o agrega los ítems faltantes.';
+  } else {
+    alerta.style.cssText = 'margin-top:10px;padding:10px 14px;border-radius:6px;font-size:13px;background:#fef2f2;color:#991b1b;border:1px solid #fca5a5';
+    alerta.innerHTML = '❌ Diferencia grande: <strong>' + fmt(Math.abs(diff)) + '</strong> (' + Math.round(pct*100) + '%). Usa <em>Re-procesar con IA</em> para volver a leer la factura.';
+  }
+}
+
+function addRow() {
+  const tbody = document.getElementById('items-body');
+  const row = document.createElement('tr');
+  row.className = 'item-row';
+  row.innerHTML = `
+    <td><input class="item-input" type="text" name="item_nombre" placeholder="Producto"></td>
+    <td><input class="item-input num" type="number" name="item_cantidad" value="1" step="0.001" min="0" oninput="recalcRow(this.closest('tr'))"></td>
+    <td><input class="item-input" type="text" name="item_unidad" placeholder="und"></td>
+    <td><input class="item-input num" type="number" name="item_precio_unitario" value="0" step="1" min="0" oninput="recalcRow(this.closest('tr'))"></td>
+    <td><input class="item-input num" type="number" name="item_descuento_unitario" value="0" step="1" min="0" oninput="recalcRow(this.closest('tr'))"></td>
+    <td><input class="item-input num" type="number" name="item_subtotal" value="0" step="1" min="0" readonly></td>
+    <td><button type="button" class="btn-link danger" onclick="this.closest('tr').remove();actualizarTotales()">✕</button></td>
+  `;
+  tbody.appendChild(row);
+  row.querySelector('input[name="item_nombre"]').focus();
+}
+
+// Conectar eventos al cambiar IVA o Total
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('f-iva').addEventListener('input', actualizarTotales);
+  document.getElementById('f-total').addEventListener('input', actualizarTotales);
+  document.getElementById('f-descuento').addEventListener('input', actualizarTotales);
+  document.getElementById('items-body').addEventListener('input', e => {
+    const row = e.target.closest('tr');
+    if (row) recalcRow(row);
+  });
+  document.getElementById('items-body').addEventListener('click', e => {
+    if (e.target.closest('button')) setTimeout(actualizarTotales, 50);
+  });
+  actualizarTotales();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Registrar pago{% endblock %}
+{% block content %}
+<header class="page-header">
+  <h1>Registrar pago de nómina</h1>
+</header>
+
+<section class="panel">
+  <form method="post" action="/nomina/pago/nuevo" class="form" id="pago-form">
+    <label>Empleado
+      <select name="empleado_id" required id="sel-empleado">
+        <option value="">— Selecciona —</option>
+        {% for e in empleados %}
+        <option value="{{ e.id }}" data-sueldo="{{ e.sueldo_base | float }}">{{ e.nombre }} · {{ e.cargo or '' }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Período inicio
+      <input type="date" name="fecha_inicio" id="fin" value="{{ hoy }}" required>
+    </label>
+    <label>Período fin
+      <input type="date" name="fecha_fin" value="{{ hoy }}" required>
+    </label>
+    <label>Días trabajados
+      <input type="number" name="dias_trabajados" min="0" max="31" placeholder="Opcional">
+    </label>
+    <label>Sueldo / salario
+      <input type="number" name="sueldo" step="1" min="0" id="inp-sueldo" value="0" required>
+    </label>
+    <label>Propinas
+      <input type="number" name="propinas" step="1" min="0" value="0">
+    </label>
+    <label>Deducciones
+      <input type="number" name="deducciones" step="1" min="0" value="0">
+    </label>
+    <label class="full">Notas
+      <textarea name="notas" rows="2"></textarea>
+    </label>
+    <div class="form-actions">
+      <a href="/nomina" class="btn">Cancelar</a>
+      <button type="submit" class="btn primary">Guardar pago</button>
+    </div>
+  </form>
+</section>
+
+<script>
+document.getElementById('sel-empleado').addEventListener('change', function() {
+  const opt = this.options[this.selectedIndex];
+  const sueldo = opt.dataset.sueldo;
+  if (sueldo) document.getElementById('inp-sueldo').value = Math.round(sueldo);
+});
+</script>
+{% endblock %}

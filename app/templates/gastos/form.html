@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}{% if gasto %}Editar gasto{% else %}Nuevo gasto{% endif %}{% endblock %}
+{% block content %}
+
+<header class="page-header">
+  <h1>{% if gasto %}Editar gasto{% else %}Nuevo gasto{% endif %}</h1>
+  <p class="muted">Factura de proveedor · {% if gasto %}ID #{{ gasto.id }}{% else %}nuevo registro{% endif %}</p>
+</header>
+
+<section class="panel">
+  <h2>Datos del comprobante</h2>
+  <form method="post"
+        action="{% if gasto %}/gastos/{{ gasto.id }}/editar{% else %}/gastos/nuevo{% endif %}"
+        class="form">
+
+    {# Fila 1: fecha + factura #}
+    <label>Fecha *
+      <input type="date" name="fecha" value="{{ gasto.fecha.isoformat() if gasto else hoy }}" required>
+    </label>
+    <label>N° Factura / Ticket
+      <input type="text" name="num_factura" value="{{ gasto.num_factura if gasto else '' }}"
+             placeholder="Ej: FE-001234">
+    </label>
+
+    {# Fila 2: proveedor + categoría #}
+    <label>Proveedor
+      <select name="proveedor_id">
+        <option value="">— Sin proveedor —</option>
+        {% for p in proveedores %}
+        <option value="{{ p.id }}" {% if gasto and gasto.proveedor_id == p.id %}selected{% endif %}>{{ p.nombre }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Categoría
+      <select name="categoria_id">
+        <option value="">— Sin categoría —</option>
+        {% for c in categorias %}
+        <option value="{{ c.id }}" {% if gasto and gasto.categoria_id == c.id %}selected{% endif %}>{{ c.nombre }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    {# Fila 3: tipo documento + medio pago + estado #}
+    <label>Tipo de documento
+      <select name="tipo_documento">
+        <option value="">— Seleccionar —</option>
+        {% for val, label in tipos_documento %}
+        <option value="{{ val }}" {% if gasto and gasto.tipo_documento == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Medio de pago
+      <select name="medio_pago">
+        <option value="">— Seleccionar —</option>
+        {% for val, label in medios_pago %}
+        <option value="{{ val }}" {% if gasto and gasto.medio_pago == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label>Estado de pago
+      <select name="estado_pago">
+        {% for val, label in estados_pago %}
+        <option value="{{ val }}" {% if (gasto and gasto.estado_pago == val) or (not gasto and val == 'pagado') %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    {# Descripción #}
+    <label class="full">Descripción
+      <input type="text" name="descripcion" value="{{ gasto.descripcion if gasto else '' }}"
+             placeholder="Ej: Compra semanal de carne">
+    </label>
+
+    {# Valores #}
+    <label>Subtotal (sin IVA)
+      <input type="number" name="subtotal" step="1" min="0"
+             value="{{ gasto.subtotal|float if gasto else 0 }}">
+    </label>
+    <label>IVA pagado
+      <input type="number" name="iva" step="1" min="0"
+             value="{{ gasto.iva|float if gasto else 0 }}">
+    </label>
+    <label>Total factura *
+      <input type="number" name="total" step="1" min="0"
+             value="{{ gasto.total|float if gasto else '' }}" required>
+    </label>
+
+    <label class="full">Notas internas
+      <textarea name="notas" rows="2" placeholder="Notas o aclaraciones adicionales">{{ gasto.notas if gasto else '' }}</textarea>
+    </label>
+
+    <div class="form-actions">
+      <a href="/gastos" class="btn">Cancelar</a>
+      <button type="submit" class="btn primary">Guardar gasto</button>
+    </div>
+  </form>
+</section>
+
+{% endblock %}

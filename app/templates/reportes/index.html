@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block title %}Reportes{% endblock %}
+{% block content %}
+<header class="page-header row">
+  <div>
+    <h1>Reportes</h1>
+    <p class="muted">Análisis financiero del restaurante</p>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center">
+    <form method="get" action="/reportes" style="display:flex;gap:8px">
+      <select name="year" onchange="this.form.submit()" class="filter-select">
+        {% for y in años_disponibles %}
+        <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+        {% endfor %}
+      </select>
+    </form>
+    <a class="btn" href="/reportes/exportar/ventas?year={{ year }}">⬇ Ventas Excel</a>
+    <a class="btn" href="/reportes/exportar/gastos?year={{ year }}">⬇ Gastos Excel</a>
+  </div>
+</header>
+
+<!-- Tarjetas resumen anual -->
+<section class="cards" style="grid-template-columns:repeat(4,1fr)">
+  <div class="card">
+    <div class="card-label">Ventas {{ year }}</div>
+    <div class="card-value positive">{{ total_ventas_año | cop }}</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Gastos {{ year }}</div>
+    <div class="card-value negative">{{ total_gastos_año | cop }}</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Utilidad bruta {{ year }}</div>
+    <div class="card-value {% if utilidad_año >= 0 %}positive{% else %}negative{% endif %}">
+      {{ utilidad_año | cop }}
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-label">SIMPLE estimado ({{ "%.1f" | format(tarifa_simple) }}%)</div>
+    <div class="card-value" style="color:var(--muted)">{{ simple_estimado | cop }}</div>
+  </div>
+</section>
+
+<!-- Gráfico ventas vs gastos -->
+<section class="panel">
+  <h2>Ventas vs Gastos por mes</h2>
+  <canvas id="chart-vg" height="90"></canvas>
+</section>
+
+<div class="grid-2">
+  <!-- Utilidad mensual -->
+  <section class="panel">
+    <h2>Utilidad mensual</h2>
+    <canvas id="chart-util" height="160"></canvas>
+  </section>
+
+  <!-- Gastos por categoría -->
+  <section class="panel">
+    <h2>Gastos por categoría</h2>
+    {% if gastos_cat != '[]' %}
+    <canvas id="chart-cat" height="160"></canvas>
+    {% else %}
+    <p class="muted">Sin gastos registrados.</p>
+    {% endif %}
+  </section>
+</div>
+
+<!-- Nómina -->
+<section class="panel">
+  <h2>Resumen de nómina {{ year }}</h2>
+  <div class="cards" style="grid-template-columns:repeat(2,1fr);margin:0">
+    <div class="card">
+      <div class="card-label">Total pagado en nómina</div>
+      <div class="card-value negative">{{ total_nomina_año | cop }}</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Utilidad después de nómina</div>
+      {% set util_post = utilidad_año - total_nomina_año %}
+      <div class="card-value {% if util_post >= 0 %}positive{% else %}negative{% endif %}">
+        {{ util_post | cop }}
+      </div>
+    </div>
+  </div>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+const LABELS = {{ labels_mes | safe }};
+const VENTAS = {{ ventas_mes | safe }};
+const GASTOS = {{ gastos_mes_data | safe }};
+const UTILIDAD = {{ utilidad_mes | safe }};
+const CAT_LABELS = {{ gastos_cat | safe }};
+const CAT_DATA = {{ gastos_cat_totales | safe }};
+
+const fmt = v => '$ ' + Math.round(v).toLocaleString('es-CO');
+
+Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+Chart.defaults.font.size = 12;
+
+new Chart(document.getElementById('chart-vg'), {
+  type: 'bar',
+  data: {
+    labels: LABELS,
+    datasets: [
+      { label: 'Ventas', data: VENTAS, backgroundColor: '#059669cc', borderRadius: 4 },
+      { label: 'Gastos', data: GASTOS, backgroundColor: '#dc2626cc', borderRadius: 4 },
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: { tooltip: { callbacks: { label: ctx => fmt(ctx.raw) } } },
+    scales: { y: { ticks: { callback: v => '$ ' + (v/1000).toFixed(0) + 'k' } } }
+  }
+});
+
+new Chart(document.getElementById('chart-util'), {
+  type: 'bar',
+  data: {
+    labels: LABELS,
+    datasets: [{
+      label: 'Utilidad',
+      data: UTILIDAD,
+      backgroundColor: UTILIDAD.map(v => v >= 0 ? '#059669aa' : '#dc2626aa'),
+      borderRadius: 4,
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => fmt(ctx.raw) } } },
+    scales: { y: { ticks: { callback: v => '$ ' + (v/1000).toFixed(0) + 'k' } } }
+  }
+});
+
+if (CAT_LABELS.length) {
+  new Chart(document.getElementById('chart-cat'), {
+    type: 'doughnut',
+    data: {
+      labels: CAT_LABELS,
+      datasets: [{ data: CAT_DATA, borderWidth: 2,
+        backgroundColor: ['#2563eb','#059669','#d97706','#dc2626','#7c3aed','#0891b2','#db2777','#65a30d','#ea580c','#0f172a'] }]
+    },
+    options: {
+      responsive: true,
+      plugins: { tooltip: { callbacks: { label: ctx => ctx.label + ': ' + fmt(ctx.raw) } } }
+    }
+  });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Proveedores{% endblock %}
+{% block content %}
+<header class="page-header">
+  <h1>Proveedores</h1>
+  <p class="muted">Empresas y personas a las que les compras</p>
+</header>
+
+<section class="panel">
+  <h2>Agregar proveedor</h2>
+  <form method="post" action="/proveedores" class="form">
+    <label>Nombre
+      <input type="text" name="nombre" required>
+    </label>
+    <label>NIT
+      <input type="text" name="nit">
+    </label>
+    <label>Teléfono
+      <input type="text" name="telefono">
+    </label>
+    <label class="full">Notas
+      <textarea name="notas" rows="2"></textarea>
+    </label>
+    <div class="form-actions">
+      <button type="submit" class="btn primary">Agregar</button>
+    </div>
+  </form>
+</section>
+
+<section class="panel">
+  <h2>Listado</h2>
+  {% if proveedores %}
+  <table>
+    <thead><tr><th>Nombre</th><th>NIT</th><th>Teléfono</th><th>Notas</th><th></th></tr></thead>
+    <tbody>
+      {% for p in proveedores %}
+      <tr>
+        <td>{{ p.nombre }}</td>
+        <td>{{ p.nit or "—" }}</td>
+        <td>{{ p.telefono or "—" }}</td>
+        <td>{{ p.notas or "—" }}</td>
+        <td>
+          <form method="post" action="/proveedores/{{ p.id }}/eliminar" onsubmit="return confirm('¿Eliminar este proveedor?')">
+            <button class="btn-link danger">eliminar</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">Aún no hay proveedores.</p>
+  {% endif %}
+</section>
+{% endblock %}

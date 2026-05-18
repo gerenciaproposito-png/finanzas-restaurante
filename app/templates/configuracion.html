@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}Configuración{% endblock %}
+{% block content %}
+<header class="page-header">
+  <h1>Configuración</h1>
+  <p class="muted">Integración con Google Drive y clave de IA</p>
+</header>
+
+{% if msg %}
+<div class="alert {% if 'error' in msg or 'sin_' in msg %}alert-error{% else %}alert-ok{% endif %}">
+  {% if msg == 'api_key_guardada' %}✅ Clave de Anthropic guardada correctamente.
+  {% elif msg == 'credenciales_subidas' %}✅ Credenciales de Google subidas. Ahora puedes conectar Drive.
+  {% elif msg == 'drive_conectado' %}✅ Google Drive conectado con éxito.
+  {% elif msg == 'folder_guardado' %}✅ Carpeta de Drive guardada.
+  {% elif msg == 'sin_credenciales' %}⚠️ Primero debes subir el archivo credentials.json de Google Cloud.
+  {% elif msg.startswith('sync_ok') %}
+    {% set parts = msg.split('_') %}
+    ✅ Sincronización completa: {{ parts[2] }} nuevas facturas procesadas{% if parts[3] != '0' %}, {{ parts[3] }} errores{% endif %}.
+  {% else %}{{ msg }}
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- PASO 1: Anthropic API Key -->
+<section class="panel">
+  <h2>1 · Clave de Anthropic (para leer facturas con IA)</h2>
+  <p class="muted">Necesaria para que Claude lea y extraiga datos de las fotos de facturas.</p>
+  <p class="muted">Obtén tu clave en <strong>console.anthropic.com</strong> → API Keys.</p>
+  <form method="post" action="/configuracion/api-key" class="form">
+    <label class="full">Clave API (sk-ant-...)
+      <input type="password" name="api_key" placeholder="{% if api_key_guardada %}••••••••••••••• (ya guardada){% else %}sk-ant-...{% endif %}" {% if not api_key_guardada %}required{% endif %}>
+    </label>
+    <div class="form-actions">
+      <button type="submit" class="btn primary">
+        {% if api_key_guardada %}Actualizar clave{% else %}Guardar clave{% endif %}
+      </button>
+    </div>
+  </form>
+</section>
+
+<!-- PASO 2: Google Drive -->
+<section class="panel">
+  <h2>2 · Conectar Google Drive</h2>
+
+  <div class="steps-guide">
+    <div class="step {% if credenciales_subidas %}done{% endif %}">
+      <span class="step-num">A</span>
+      <div>
+        <strong>Subir credenciales de Google Cloud</strong>
+        <p class="muted">
+          En <strong>console.cloud.google.com</strong>: crea un proyecto → habilita "Google Drive API" →
+          ve a "Credenciales" → "Crear credenciales" → "ID de cliente OAuth 2.0" → tipo <strong>Aplicación de escritorio</strong>
+          → descarga el JSON → súbelo aquí.<br>
+          Agrega <code>http://localhost:8000/configuracion/drive/callback</code> como URI de redireccionamiento autorizado.
+        </p>
+        {% if not credenciales_subidas %}
+        <form method="post" action="/configuracion/credenciales-google" enctype="multipart/form-data" class="form" style="margin-top:8px">
+          <label class="full">Archivo credentials.json
+            <input type="file" name="archivo" accept=".json" required>
+          </label>
+          <div class="form-actions"><button class="btn primary" type="submit">Subir</button></div>
+        </form>
+        {% else %}
+        <p style="color:var(--positive)">✅ credentials.json subido</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="step {% if drive_conectado %}done{% endif %}">
+      <span class="step-num">B</span>
+      <div>
+        <strong>Autorizar acceso a tu cuenta de Google</strong>
+        {% if drive_conectado %}
+          <p style="color:var(--positive)">✅ Drive conectado</p>
+        {% elif credenciales_subidas %}
+          <a class="btn primary" href="/configuracion/drive/autorizar">Conectar con Google Drive</a>
+        {% else %}
+          <p class="muted">Primero completa el paso A.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="step">
+      <span class="step-num">C</span>
+      <div>
+        <strong>Carpeta de Drive con las fotos de facturas</strong>
+        <p class="muted">Abre la carpeta en Drive y copia la URL completa.</p>
+        <form method="post" action="/configuracion/folder" class="form" style="margin-top:8px">
+          <label class="full">URL de la carpeta
+            <input type="url" name="folder_url" value="{{ folder_url }}"
+                   placeholder="https://drive.google.com/drive/folders/..." required>
+          </label>
+          {% if folder_id %}<p class="muted">ID actual: <code>{{ folder_id }}</code></p>{% endif %}
+          <div class="form-actions"><button class="btn primary" type="submit">Guardar carpeta</button></div>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CARPETA VENTAS -->
+<section class="panel">
+  <h2>3 · Carpeta de Drive con reportes de ventas</h2>
+  <p class="muted">Sube fotos o PDFs del cierre del POS / reporte Z a esta carpeta. El sistema los leerá con IA y creará registros de ventas para revisar.</p>
+  <form method="post" action="/configuracion/folder-ventas" class="form" style="margin-top:8px">
+    <label class="full">URL de la carpeta de ventas
+      <input type="url" name="folder_url" value="{{ ventas_folder_url }}"
+             placeholder="https://drive.google.com/drive/folders/..." required>
+    </label>
+    {% if ventas_folder_id %}
+    <p class="muted" style="grid-column:1/-1">ID actual: <code>{{ ventas_folder_id }}</code> ✅</p>
+    {% endif %}
+    <div class="form-actions"><button class="btn primary" type="submit">Guardar carpeta de ventas</button></div>
+  </form>
+</section>
+
+<!-- SINCRONIZAR -->
+{% if drive_conectado %}
+<section class="panel">
+  <h2>Sincronización manual</h2>
+  <p class="muted">La sincronización automática corre al arrancar el servidor. Úsala aquí para forzarla.</p>
+  <div style="display:flex;gap:12px;flex-wrap:wrap">
+    {% if folder_id %}
+    <form method="post" action="/configuracion/sincronizar">
+      <button class="btn primary" type="submit">🔄 Sincronizar facturas</button>
+    </form>
+    {% endif %}
+    {% if ventas_folder_id %}
+    <form method="post" action="/configuracion/sincronizar-ventas">
+      <button class="btn primary" type="submit">🔄 Sincronizar ventas</button>
+    </form>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}

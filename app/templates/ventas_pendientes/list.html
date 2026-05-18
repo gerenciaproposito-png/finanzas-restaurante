@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Ventas pendientes{% endblock %}
+{% block content %}
+
+<header class="page-header row">
+  <div>
+    <h1>Ventas pendientes</h1>
+    <p class="muted">Reportes de ventas descargados de Drive · pendientes de confirmar</p>
+  </div>
+  <form method="post" action="/configuracion/sincronizar-ventas">
+    <button type="submit" class="btn primary">↻ Sincronizar Drive</button>
+  </form>
+</header>
+
+{% if pendientes %}
+<section class="panel">
+  <h2>Por revisar ({{ pendientes|length }})</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Archivo</th>
+        <th>Fecha sync</th>
+        <th>Datos extraídos</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for vp in pendientes %}
+      {% set datos = vp.datos_json | from_json if vp.datos_json else {} %}
+      <tr>
+        <td>
+          <strong style="font-size:13px">{{ vp.nombre_archivo }}</strong>
+        </td>
+        <td style="color:var(--muted);font-size:12px;white-space:nowrap">
+          {{ vp.fecha_sync.strftime('%d/%m/%Y %H:%M') }}
+        </td>
+        <td>
+          {% if datos and datos.fecha %}
+            <span style="font-family:Georgia,serif;font-weight:700;color:var(--text)">
+              {{ datos.fecha }}
+            </span>
+            {% if datos.turno %}
+              <span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:#fdf0d0;color:#7a4e10;margin-left:6px">
+                {{ datos.turno }}
+              </span>
+            {% endif %}
+            <br>
+            <span style="font-family:Georgia,serif;font-weight:700;color:var(--positive);font-size:15px">
+              ${{ "{:,.0f}".format(datos.total or 0) }}
+            </span>
+          {% else %}
+            <span class="muted">Sin datos</span>
+          {% endif %}
+        </td>
+        <td style="white-space:nowrap">
+          <a class="btn primary" href="/ventas-pendientes/{{ vp.id }}/revisar" style="font-size:12px;padding:6px 14px">
+            Revisar →
+          </a>
+          <form method="post" action="/ventas-pendientes/{{ vp.id }}/descartar"
+                onsubmit="return confirm('¿Descartar este reporte?')" style="display:inline">
+            <button class="btn-link danger" style="font-size:12px;margin-left:8px">Descartar</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+{% else %}
+<div class="empty-state">
+  <p style="font-size:16px;font-weight:600">No hay reportes de ventas pendientes.</p>
+  <p>Sincroniza la carpeta de ventas desde Drive para importar reportes.</p>
+  <form method="post" action="/configuracion/sincronizar-ventas" style="margin-top:16px">
+    <button type="submit" class="btn primary">↻ Sincronizar ahora</button>
+  </form>
+</div>
+{% endif %}
+
+{% endblock %}

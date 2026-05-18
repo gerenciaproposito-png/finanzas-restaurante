@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}{% if item %}Editar insumo{% else %}Nuevo insumo{% endif %}{% endblock %}
+{% block content %}
+<header class="page-header">
+  <h1>{% if item %}Editar insumo{% else %}Nuevo insumo{% endif %}</h1>
+</header>
+
+<section class="panel">
+  <form method="post" action="{% if item %}/inventario/{{ item.id }}/editar{% else %}/inventario/nuevo-item{% endif %}" class="form">
+    <label>Nombre del insumo
+      <input type="text" name="nombre" value="{{ item.nombre if item else '' }}" required>
+    </label>
+    <label>Unidad de medida
+      <select name="unidad">
+        {% for u in ['kg', 'g', 'lt', 'ml', 'und', 'caja', 'bolsa', 'paquete', 'docena', 'libra'] %}
+        <option value="{{ u }}" {% if item and item.unidad == u %}selected{% endif %}>{{ u }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    {% if not item %}
+    <label>Stock inicial
+      <input type="number" name="stock_actual" step="0.001" min="0" value="0">
+    </label>
+    {% endif %}
+    <label>Costo promedio unitario (COP)
+      <input type="number" name="costo_promedio" step="1" min="0"
+             value="{{ item.costo_promedio | float if item else 0 }}">
+    </label>
+    <label>Stock mínimo (alerta)
+      <input type="number" name="stock_minimo" step="0.001" min="0"
+             value="{{ item.stock_minimo | float if item and item.stock_minimo else '' }}"
+             placeholder="Opcional">
+    </label>
+    <div class="form-actions">
+      <a href="/inventario" class="btn">Cancelar</a>
+      <button type="submit" class="btn primary">Guardar</button>
+    </div>
+  </form>
+</section>
+{% endblock %}

@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<header class="page-header">
+  <h1>Dashboard</h1>
+  <p class="muted">Resumen del mes en curso · {{ hoy.strftime("%B %Y") }}</p>
+</header>
+
+<section class="cards">
+  <div class="card">
+    <div class="card-label">Ventas del mes</div>
+    <div class="card-value positive">{{ total_ventas_mes | cop }}</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Gastos del mes</div>
+    <div class="card-value negative">{{ total_gastos_mes | cop }}</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Utilidad bruta</div>
+    <div class="card-value {% if utilidad_mes >= 0 %}positive{% else %}negative{% endif %}">
+      {{ utilidad_mes | cop }}
+    </div>
+  </div>
+</section>
+
+<section class="grid-2">
+  <div class="panel">
+    <h2>Gastos por categoría (mes)</h2>
+    {% if gastos_por_cat %}
+    <table>
+      <thead><tr><th>Categoría</th><th class="num">Total</th></tr></thead>
+      <tbody>
+        {% for nombre, total in gastos_por_cat %}
+          <tr><td>{{ nombre }}</td><td class="num">{{ total | cop }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">Sin gastos registrados este mes.</p>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <h2>Ventas recientes</h2>
+    {% if ventas_recientes %}
+    <table>
+      <thead><tr><th>Fecha</th><th>Turno</th><th class="num">Total</th></tr></thead>
+      <tbody>
+        {% for v in ventas_recientes %}
+          <tr><td>{{ v.fecha }}</td><td>{{ v.turno or "—" }}</td><td class="num">{{ v.total | cop }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">Aún no hay ventas. <a href="/ventas/nueva">Registrar la primera</a>.</p>
+    {% endif %}
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Gastos recientes</h2>
+  {% if gastos_recientes %}
+  <table>
+    <thead>
+      <tr><th>Fecha</th><th>Proveedor</th><th>Categoría</th><th>Factura</th><th class="num">Total</th></tr>
+    </thead>
+    <tbody>
+      {% for g in gastos_recientes %}
+      <tr>
+        <td>{{ g.fecha }}</td>
+        <td>{{ g.proveedor.nombre if g.proveedor else "—" }}</td>
+        <td>{{ g.categoria.nombre if g.categoria else "—" }}</td>
+        <td>{{ g.num_factura or "—" }}</td>
+        <td class="num">{{ g.total | cop }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">Aún no hay gastos. <a href="/gastos/nuevo">Registrar el primero</a>.</p>
+  {% endif %}
+</section>
+{% endblock %}

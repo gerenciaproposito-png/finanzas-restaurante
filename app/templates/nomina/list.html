@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Nómina{% endblock %}
+{% block content %}
+<header class="page-header row">
+  <div>
+    <h1>Nómina</h1>
+    <p class="muted">Empleados y pagos de personal</p>
+  </div>
+  <a class="btn primary" href="/nomina/pago/nuevo">+ Registrar pago</a>
+</header>
+
+<div class="grid-2">
+  <!-- Empleados -->
+  <section class="panel">
+    <h2>Empleados activos</h2>
+    {% set activos = empleados | selectattr('activo') | list %}
+    {% if activos %}
+    <table>
+      <thead><tr><th>Nombre</th><th>Cargo</th><th class="num">Sueldo base</th><th></th></tr></thead>
+      <tbody>
+        {% for e in activos %}
+        <tr>
+          <td>{{ e.nombre }}</td>
+          <td>{{ e.cargo or "—" }}</td>
+          <td class="num">{{ e.sueldo_base | cop }}</td>
+          <td>
+            <form method="post" action="/nomina/empleado/{{ e.id }}/inactivar"
+                  onsubmit="return confirm('¿Marcar como inactivo a {{ e.nombre }}?')">
+              <button class="btn-link danger">Inactivar</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">Sin empleados activos.</p>
+    {% endif %}
+
+    <hr style="margin:16px 0; border-color:var(--border)">
+    <h2>Agregar empleado</h2>
+    <form method="post" action="/nomina/empleado" class="form">
+      <label>Nombre <input type="text" name="nombre" required></label>
+      <label>Cédula <input type="text" name="cedula"></label>
+      <label>Cargo <input type="text" name="cargo"></label>
+      <label>Sueldo base <input type="number" name="sueldo_base" step="1" min="0" value="0"></label>
+      <label>Tipo contrato
+        <select name="tipo_contrato">
+          <option value="">—</option>
+          <option value="Término indefinido">Término indefinido</option>
+          <option value="Término fijo">Término fijo</option>
+          <option value="Obra o labor">Obra o labor</option>
+          <option value="Por días">Por días</option>
+        </select>
+      </label>
+      <div class="form-actions"><button class="btn primary" type="submit">Agregar</button></div>
+    </form>
+  </section>
+
+  <!-- Pagos recientes -->
+  <section class="panel">
+    <h2>Pagos recientes</h2>
+    {% if pagos_recientes %}
+    <table>
+      <thead>
+        <tr><th>Empleado</th><th>Período</th><th class="num">Sueldo</th><th class="num">Propinas</th><th class="num">Neto</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for p in pagos_recientes %}
+        <tr>
+          <td>{{ p.empleado.nombre }}</td>
+          <td style="font-size:12px">{{ p.fecha_inicio }} → {{ p.fecha_fin }}</td>
+          <td class="num">{{ p.sueldo | cop }}</td>
+          <td class="num">{{ p.propinas | cop }}</td>
+          <td class="num"><strong>{{ p.neto_pagado | cop }}</strong></td>
+          <td>
+            <form method="post" action="/nomina/pago/{{ p.id }}/eliminar"
+                  onsubmit="return confirm('¿Eliminar este pago?')">
+              <button class="btn-link danger">✕</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">Sin pagos registrados.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

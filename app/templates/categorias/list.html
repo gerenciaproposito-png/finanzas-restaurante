@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Categorías{% endblock %}
+{% block content %}
+<header class="page-header">
+  <h1>Categorías</h1>
+  <p class="muted">Etiquetas para clasificar ingresos y gastos</p>
+</header>
+
+<section class="panel">
+  <h2>Agregar categoría</h2>
+  <form method="post" action="/categorias" class="form">
+    <label>Nombre
+      <input type="text" name="nombre" required>
+    </label>
+    <label>Tipo
+      <select name="tipo" required>
+        <option value="gasto">Gasto</option>
+        <option value="ingreso">Ingreso</option>
+      </select>
+    </label>
+    <div class="form-actions">
+      <button type="submit" class="btn primary">Agregar</button>
+    </div>
+  </form>
+</section>
+
+<section class="panel">
+  <h2>Listado</h2>
+  <table>
+    <thead><tr><th>Nombre</th><th>Tipo</th><th></th></tr></thead>
+    <tbody>
+      {% for c in categorias %}
+      <tr>
+        <td>{{ c.nombre }}</td>
+        <td>{{ c.tipo }}</td>
+        <td>
+          <form method="post" action="/categorias/{{ c.id }}/eliminar" onsubmit="return confirm('¿Eliminar esta categoría?')">
+            <button class="btn-link danger">eliminar</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

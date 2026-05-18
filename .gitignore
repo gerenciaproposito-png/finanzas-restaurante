@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+.venv/
+data/
+uploads/
+ventas/
+.vscode/
+.idea/
+.env
+*.db
+*.db-journal
+google_credentials.json
+google_token.json
+token.json
+credentials.json
+analizar_facturas.py

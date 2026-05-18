@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Historial de precios{% endblock %}
+{% block content %}
+<header class="page-header">
+  <h1>Seguimiento de precios</h1>
+  <p class="muted">Evolución de precios por producto confirmados desde facturas</p>
+</header>
+
+{% if items %}
+{% for item in items %}
+{% set s = stats[item.id] %}
+<section class="panel">
+  <div class="precio-header">
+    <div>
+      <strong>{{ item.nombre }}</strong>
+      {% if item.unidad %}<span class="muted">· {{ item.unidad }}</span>{% endif %}
+    </div>
+    {% if s %}
+    <div class="precio-badges">
+      <span class="badge-price last">Último: {{ s.ultimo.precio_unitario | cop }}</span>
+      <span class="badge-price low">Min: ${{ "{:,.0f}".format(s.min).replace(",", ".") }}</span>
+      <span class="badge-price high">Max: ${{ "{:,.0f}".format(s.max).replace(",", ".") }}</span>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if s %}
+  <table style="margin-top:10px">
+    <thead>
+      <tr><th>Fecha</th><th>Proveedor</th><th class="num">Precio unitario</th></tr>
+    </thead>
+    <tbody>
+      {% for row in s.historial %}
+      <tr>
+        <td>{{ row.fecha }}</td>
+        <td>{{ row.proveedor or "—" }}</td>
+        <td class="num">{{ row.precio_unitario | cop }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% if s.observaciones > 10 %}
+  <p class="muted" style="margin-top:6px;font-size:12px">Mostrando las 10 más recientes de {{ s.observaciones }} observaciones.</p>
+  {% endif %}
+  {% else %}
+  <p class="muted">Sin registros de precios todavía.</p>
+  {% endif %}
+</section>
+{% endfor %}
+{% else %}
+<div class="empty-state">
+  <p>Aún no hay productos en el catálogo.</p>
+  <p class="muted">Cuando confirmes facturas desde Drive, los productos y precios aparecerán aquí automáticamente.</p>
+</div>
+{% endif %}
+{% endblock %}

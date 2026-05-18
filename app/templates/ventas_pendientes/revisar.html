@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+{% block title %}Revisar reporte de ventas{% endblock %}
+{% block content %}
+
+<header class="page-header row">
+  <div>
+    <h1>Revisar reporte de ventas</h1>
+    <p class="muted">{{ vp.nombre_archivo }}</p>
+  </div>
+  <a href="/ventas-pendientes" class="btn">← Volver</a>
+</header>
+
+{% if request.query_params.get('err') %}
+<div class="alert alert-error">Error: {{ request.query_params.get('err') }}</div>
+{% endif %}
+
+<div class="revisar-layout">
+
+  <!-- Imagen / PDF -->
+  <div class="foto-panel">
+    {% if imagen_url %}
+      {% if is_pdf %}
+        <iframe src="{{ imagen_url }}" style="width:100%;height:760px;border:none;display:block;"></iframe>
+      {% else %}
+        <img src="{{ imagen_url }}" alt="Reporte de ventas" class="factura-img">
+      {% endif %}
+    {% else %}
+      <div class="sin-foto">Sin imagen disponible</div>
+    {% endif %}
+    <div style="padding:10px 14px;background:var(--surface-warm);border-top:1px solid var(--border-light)">
+      <form method="post" action="/ventas-pendientes/{{ vp.id }}/reprocesar">
+        <button type="submit" class="btn" style="width:100%;font-size:12px">🔄 Re-procesar con IA</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Formulario -->
+  <form method="post" action="/ventas-pendientes/{{ vp.id }}/confirmar" class="datos-panel">
+
+    <!-- ── Datos principales ── -->
+    <div class="panel">
+      <h2>Datos del reporte</h2>
+      <div class="form">
+        <label>Fecha *
+          <input type="date" name="fecha" value="{{ datos.fecha or hoy }}" required>
+        </label>
+        <label>Turno
+          <select name="turno">
+            <option value="">— Sin turno —</option>
+            {% for val, label in turnos %}
+            <option value="{{ val }}" {% if datos.turno == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+
+        {# Total ventas = lo que cobra el negocio SIN propinas (incluye impoconsumo) #}
+        <label>Total ventas (sin propinas) *
+          <input type="number" id="f-total" name="total" step="1" min="0"
+                 value="{{ datos.total or 0 }}" required oninput="recalcular()"
+                 style="font-family:Georgia,serif;font-size:17px;font-weight:700">
+        </label>
+        <label>Propinas
+          <input type="number" id="f-propinas" name="propinas" step="1" min="0"
+                 value="{{ datos.propinas or 0 }}" oninput="recalcular()">
+        </label>
+
+      </div>
+
+      {# Desglose automático: venta neta vs impoconsumo #}
+      <div style="margin:16px 0 0;padding:16px;background:var(--surface-warm);border-radius:8px;border:1px solid var(--border-light)">
+        <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px">
+          Desglose automático (impoconsumo 8% incluido en ventas)
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+          <div>
+            <div style="font-size:10px;color:var(--muted);margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px">Venta neta</div>
+            <div id="disp-neta" style="font-family:Georgia,serif;font-size:18px;font-weight:700;color:var(--text)">$ 0</div>
+          </div>
+          <div>
+            <div style="font-size:10px;color:var(--muted);margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px">Impoconsumo (8%)</div>
+            <div id="disp-impo" style="font-family:Georgia,serif;font-size:18px;font-weight:700;color:var(--gold-dark)">$ 0</div>
+          </div>
+          <div>
+            <div style="font-size:10px;color:var(--muted);margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px">Propinas</div>
+            <div id="disp-propinas" style="font-family:Georgia,serif;font-size:18px;font-weight:700;color:var(--muted)">$ 0</div>
+          </div>
+        </div>
+        {# Hidden input for impoconsumo #}
+        <input type="hidden" id="f-impoconsumo" name="impoconsumo" value="0">
+      </div>
+    </div>
+
+    <!-- ── Desglose por medio de pago ── -->
+    <div class="panel">
+      <h2>Medios de pago</h2>
+      <p style="font-size:12px;color:var(--muted);margin:-8px 0 14px;padding:0 24px">
+        Los medios de pago suman ventas <strong>más propinas</strong>. Revisa que cuadren.
+      </p>
+      <div class="form" style="padding:0 24px 16px">
+        <label>💵 Efectivo
+          <input type="number" id="f-efectivo" name="efectivo" step="1" min="0"
+                 value="{{ datos.efectivo or 0 }}" oninput="recalcular()">
+        </label>
+        <label>💳 Tarjeta débito
+          <input type="number" id="f-tdebito" name="tarjeta_debito" step="1" min="0"
+                 value="{{ datos.tarjeta_debito or 0 }}" oninput="recalcular()">
+        </label>
+        <label>💳 Tarjeta crédito
+          <input type="number" id="f-tcredito" name="tarjeta_credito" step="1" min="0"
+                 value="{{ datos.tarjeta_credito or 0 }}" oninput="recalcular()">
+        </label>
+        <label>⟳ Transferencia
+          <input type="number" id="f-transf" name="transferencia" step="1" min="0"
+                 value="{{ datos.transferencia or 0 }}" oninput="recalcular()">
+        </label>
+        <label>🛵 Domicilios / Rappi
+          <input type="number" id="f-domicilio" name="domicilio" step="1" min="0"
+                 value="{{ datos.domicilio or 0 }}" oninput="recalcular()">
+        </label>
+      </div>
+
+      <!-- Totalizador -->
+      <div class="totalizador" style="margin:0 24px 20px">
+        <div class="tot-row">
+          <span style="font-size:12px">Σ Medios de pago</span>
+          <span class="tot-num" id="tot-suma" style="font-size:13px">$ 0</span>
+        </div>
+        <div class="tot-row" style="color:#9a7858">
+          <span style="font-size:12px">Total ventas declarado</span>
+          <span class="tot-num" id="tot-ventas" style="font-size:13px">$ 0</span>
+        </div>
+        <div class="tot-row" style="color:#9a7858">
+          <span style="font-size:12px">+ Propinas declaradas</span>
+          <span class="tot-num" id="tot-prop-disp" style="font-size:13px">$ 0</span>
+        </div>
+        <div class="tot-row highlight" id="tot-declarado-row">
+          <span>Ventas + Propinas</span>
+          <span class="tot-num" id="tot-declarado">$ 0</span>
+        </div>
+        <div class="tot-row" id="tot-estado-row">
+          <span id="tot-estado-label" style="font-size:12px">—</span>
+          <span id="tot-diff" class="tot-num" style="font-size:12px"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Notas ── -->
+    <div class="panel">
+      <h2>Notas</h2>
+      <div class="form" style="padding:0 24px 0">
+        <label class="full">Observaciones
+          <textarea name="notas" rows="2"
+            placeholder="Evento especial, cierre tardío, incidencia con terminal…">{{ datos.notas or '' }}</textarea>
+        </label>
+      </div>
+      <div class="form-actions">
+        <form method="post" action="/ventas-pendientes/{{ vp.id }}/descartar"
+              onsubmit="return confirm('¿Descartar?')">
+          <button type="submit" class="btn danger-btn">Descartar</button>
+        </form>
+        <button type="submit" class="btn primary" style="padding:10px 28px;font-size:14px">
+          ✓ Confirmar venta
+        </button>
+      </div>
+    </div>
+
+  </form>
+</div>
+
+<script>
+const IMPO_RATE = 8 / 108;   // impoconsumo incluido en el precio final
+
+function n(id) { return parseFloat(document.getElementById(id).value) || 0; }
+function fmt(v) { return '$ ' + Math.round(v).toLocaleString('es-CO'); }
+
+function recalcular() {
+  const total    = n('f-total');
+  const propinas = n('f-propinas');
+  const medios   = n('f-efectivo') + n('f-tdebito') + n('f-tcredito') + n('f-transf') + n('f-domicilio');
+
+  // Descomposición ventas
+  const impo = Math.round(total * IMPO_RATE);
+  const neta = total - impo;
+  document.getElementById('disp-neta').textContent    = fmt(neta);
+  document.getElementById('disp-impo').textContent    = fmt(impo);
+  document.getElementById('disp-propinas').textContent = fmt(propinas);
+  document.getElementById('f-impoconsumo').value = impo;
+
+  // Totalizador: medios de pago deben = ventas + propinas
+  const declarado = total + propinas;
+  const diff = medios - declarado;
+
+  document.getElementById('tot-suma').textContent     = fmt(medios);
+  document.getElementById('tot-ventas').textContent   = fmt(total);
+  document.getElementById('tot-prop-disp').textContent = fmt(propinas);
+  document.getElementById('tot-declarado').textContent = fmt(declarado);
+
+  const estadoLabel = document.getElementById('tot-estado-label');
+  const diffEl      = document.getElementById('tot-diff');
+  const decRow      = document.getElementById('tot-declarado-row');
+
+  if (Math.abs(diff) < 500) {
+    decRow.className = 'tot-row ok';
+    estadoLabel.textContent = '✅ Los medios de pago cuadran';
+    diffEl.textContent = '';
+  } else if (diff > 0) {
+    decRow.className = 'tot-row warn';
+    estadoLabel.textContent = '⚠️ Los medios superan en';
+    diffEl.textContent = fmt(diff);
+  } else {
+    decRow.className = 'tot-row warn';
+    estadoLabel.textContent = '⚠️ Faltan por asignar';
+    diffEl.textContent = fmt(Math.abs(diff));
+  }
+}
+
+document.addEventListener('DOMContentLoaded', recalcular);
+</script>
+{% endblock %}

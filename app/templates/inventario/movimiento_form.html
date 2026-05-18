@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Movimiento · {{ item.nombre }}{% endblock %}
+{% block content %}
+<header class="page-header row">
+  <div>
+    <h1>{{ item.nombre }}</h1>
+    <p class="muted">Stock actual: <strong>{{ "%.3f" | format(item.stock_actual | float) }} {{ item.unidad }}</strong>
+    · Costo promedio: {{ item.costo_promedio | cop }}</p>
+  </div>
+  <a href="/inventario" class="btn">← Volver</a>
+</header>
+
+<div class="grid-2">
+  <section class="panel">
+    <h2>Registrar movimiento</h2>
+    <form method="post" action="/inventario/{{ item.id }}/movimiento" class="form">
+      <label>Tipo
+        <select name="tipo" required>
+          <option value="entrada">📥 Entrada (compra / recibo)</option>
+          <option value="salida">📤 Salida (uso / merma)</option>
+          <option value="ajuste">⚖️ Ajuste (inventario físico)</option>
+        </select>
+      </label>
+      <label>Fecha
+        <input type="date" name="fecha" value="{{ hoy }}" required>
+      </label>
+      <label>Cantidad ({{ item.unidad }})
+        <input type="number" name="cantidad" step="0.001" min="0" required>
+      </label>
+      <label>Costo unitario (solo entradas)
+        <input type="number" name="costo_unitario" step="1" min="0" placeholder="Opcional">
+      </label>
+      <label class="full">Notas
+        <textarea name="notas" rows="2"></textarea>
+      </label>
+      <div class="form-actions">
+        <button type="submit" class="btn primary">Registrar</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>Últimos 20 movimientos</h2>
+    {% if movimientos %}
+    <table>
+      <thead><tr><th>Fecha</th><th>Tipo</th><th class="num">Cantidad</th><th class="num">Costo unit.</th></tr></thead>
+      <tbody>
+        {% for m in movimientos %}
+        <tr>
+          <td>{{ m.fecha }}</td>
+          <td>
+            {% if m.tipo == 'entrada' %}📥{% elif m.tipo == 'salida' %}📤{% else %}⚖️{% endif %}
+            {{ m.tipo }}
+          </td>
+          <td class="num">{{ "%.3f" | format(m.cantidad | float) }}</td>
+          <td class="num">{{ m.costo_unitario | cop if m.costo_unitario else "—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">Sin movimientos registrados.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}
