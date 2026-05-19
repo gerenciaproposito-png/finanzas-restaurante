@@ -9,6 +9,17 @@
   <a href="/facturas" class="btn">← Volver</a>
 </header>
 
+{% if datos.notas_revision %}
+<div style="background:#fff5f5;border:2px solid #dc2626;border-left:8px solid #dc2626;border-radius:8px;padding:14px 18px;margin-bottom:18px;display:flex;gap:12px;align-items:flex-start">
+  <div style="font-size:24px;line-height:1">⚠️</div>
+  <div>
+    <div style="font-weight:700;color:#991b1b;font-size:14px;margin-bottom:4px">Atención: la IA detectó algo fuera de lo impreso</div>
+    <div style="color:#7f1d1d;font-size:13px;line-height:1.5">{{ datos.notas_revision }}</div>
+    <div style="color:#7f1d1d;font-size:12px;margin-top:6px;font-style:italic">Revisa las cantidades antes de confirmar — pueden no coincidir con lo realmente recibido.</div>
+  </div>
+</div>
+{% endif %}
+
 {% if multi_invoice %}
 {# ── Panel de múltiples facturas ── #}
 {# Parsear datos_json directamente en el template con notación de corchetes para evitar colisión con dict.items() #}
@@ -150,15 +161,20 @@
     <!-- Ítems -->
     <div class="panel">
       <h2>Ítems y precios</h2>
-      <p class="muted" style="margin-bottom:10px">Precio unitario es sin descuento. El subtotal se calcula automáticamente: (precio − descuento) × cantidad.</p>
+      <p class="muted" style="margin-bottom:10px">
+        <strong>Empaque</strong> = cuánto trae cada bulto (ej. 1000 g, 750 ml). Se usa para calcular el costo por gramo.
+        <strong>Precio unit.</strong> es por <em>bulto</em>, sin descuento. Subtotal = (precio − descuento) × cantidad.
+      </p>
 
       <div style="overflow-x:auto">
-      <table id="items-table" style="min-width:700px">
+      <table id="items-table" style="min-width:840px">
         <thead>
           <tr>
             <th style="min-width:160px">Producto</th>
             <th>Cantidad</th>
             <th>Unidad</th>
+            <th title="Cuánto trae cada bulto (ej. 1000 para 1 kg)">Empaque</th>
+            <th title="Unidad del empaque: g o ml">U. Emp.</th>
             <th>Precio unit.</th>
             <th>Descuento unit.</th>
             <th>Subtotal</th>
@@ -170,7 +186,9 @@
           <tr class="item-row">
             <td><input class="item-input" type="text" name="item_nombre" value="{{ item.nombre }}" placeholder="Producto" required></td>
             <td><input class="item-input num" type="number" name="item_cantidad" value="{{ item.cantidad }}" step="0.001" min="0" oninput="recalcRow(this.closest('tr'))"></td>
-            <td><input class="item-input" type="text" name="item_unidad" value="{{ item.unidad or '' }}" placeholder="kg/und"></td>
+            <td><input class="item-input" type="text" name="item_unidad" value="{{ item.unidad or '' }}" placeholder="kg/und" style="max-width:70px"></td>
+            <td><input class="item-input num" type="number" name="item_cantidad_empaque" value="{{ item.cantidad_empaque or 0 }}" step="0.001" min="0" style="max-width:90px"></td>
+            <td><input class="item-input" type="text" name="item_unidad_empaque" value="{{ item.unidad_empaque or '' }}" placeholder="g/ml" style="max-width:60px"></td>
             <td><input class="item-input num" type="number" name="item_precio_unitario" value="{{ item.precio_unitario }}" step="1" min="0" oninput="recalcRow(this.closest('tr'))"></td>
             <td><input class="item-input num" type="number" name="item_descuento_unitario" value="{{ item.descuento_unitario or 0 }}" step="1" min="0" oninput="recalcRow(this.closest('tr'))"></td>
             <td><input class="item-input num" type="number" name="item_subtotal" value="{{ item.subtotal }}" step="1" min="0" readonly></td>
@@ -351,7 +369,9 @@ function addRow() {
   row.innerHTML = `
     <td><input class="item-input" type="text" name="item_nombre" placeholder="Producto"></td>
     <td><input class="item-input num" type="number" name="item_cantidad" value="1" step="0.001" min="0" oninput="recalcRow(this.closest('tr'))"></td>
-    <td><input class="item-input" type="text" name="item_unidad" placeholder="und"></td>
+    <td><input class="item-input" type="text" name="item_unidad" placeholder="und" style="max-width:70px"></td>
+    <td><input class="item-input num" type="number" name="item_cantidad_empaque" value="0" step="0.001" min="0" style="max-width:90px"></td>
+    <td><input class="item-input" type="text" name="item_unidad_empaque" placeholder="g/ml" style="max-width:60px"></td>
     <td><input class="item-input num" type="number" name="item_precio_unitario" value="0" step="1" min="0" oninput="recalcRow(this.closest('tr'))"></td>
     <td><input class="item-input num" type="number" name="item_descuento_unitario" value="0" step="1" min="0" oninput="recalcRow(this.closest('tr'))"></td>
     <td><input class="item-input num" type="number" name="item_subtotal" value="0" step="1" min="0" readonly></td>

@@ -4,55 +4,192 @@ from pathlib import Path
 
 import anthropic
 
-PROMPT = """Eres un asistente especializado en leer facturas y recibos de un restaurante colombiano.
-Analiza el documento y devuelve SOLO JSON válido (sin markdown, sin texto extra).
+PROMPT = """Eres un asistente experto en leer facturas y recibos de proveedores de un restaurante colombiano (gastrobar en Pereira).
 
-REGLA PRINCIPAL: Si el documento tiene UNA factura → devuelve un objeto JSON.
-Si tiene VARIAS facturas (distinto número o distinta fecha) → devuelve un arreglo JSON [].
+Analiza el documento y devuelve SOLO JSON válido — sin markdown, sin texto adicional, sin ```.
 
-Estructura de cada factura:
+═══════════════════════════════════════════════════
+REGLA #1 — UNA FACTURA vs VARIAS FACTURAS
+═══════════════════════════════════════════════════
+
+Si el documento tiene **UNA** factura → devuelve un OBJETO JSON `{}`.
+Si tiene **VARIAS** facturas (distinto número, distinta fecha, o claramente separadas por sello/firma/cuenta cerrada) → devuelve un ARREGLO `[ {}, {}, {} ]`.
+
+Señales de "factura nueva" dentro del mismo PDF:
+  • Nuevo encabezado con logo/NIT del proveedor.
+  • Distinto "N° Factura", "Orden" o "Pedido".
+  • Distinta fecha.
+  • Línea de "Cuenta cerrada", "ACEPTADA", o un sello/firma de recepción.
+  • Recibos térmicos largos suelen ser **una factura por hoja**.
+
+═══════════════════════════════════════════════════
+REGLA #2 — ESTRUCTURA DE CADA FACTURA
+═══════════════════════════════════════════════════
+
 {
-  "proveedor": "nombre completo del proveedor",
-  "nit_proveedor": "NIT sin puntos ni guiones, o null",
-  "num_factura": "número de factura o null",
-  "fecha": "YYYY-MM-DD o null",
+  "proveedor": "Razón social completa del que VENDE (no el que compra). En tickets térmicos suele estar en el encabezado arriba del NIT.",
+  "nit_proveedor": "NIT del vendedor, sin puntos ni guiones, sin dígito de verificación. Ej: 900665499. Null si no aparece.",
+  "num_factura": "Número de factura exactamente como aparece. Ej: H69E-77622, ESFE179323, 1880412233. Null si no.",
+  "fecha": "YYYY-MM-DD. Si solo ves DD/MM/AAAA, conviértelo. Null si no.",
+  "tipo_documento": "factura_e | factura_papel | ticket | recibo | sin_soporte",
   "items": [
     {
-      "nombre": "nombre completo del producto",
+      "nombre": "Nombre del producto LIMPIO Y COMPLETO — ver Regla #3.",
       "cantidad": 1.0,
-      "unidad": "kg/und/lt/caja/bolsa/g/ml",
+      "unidad": "und | kg | g | lt | ml | caja | bolsa | bot | btc | docena",
+      "cantidad_empaque": 0,
+      "unidad_empaque": "g | ml | kg | lt | und | null",
       "precio_unitario": 0,
       "descuento_unitario": 0,
-      "subtotal": 0
+      "subtotal": 0,
+      "iva_porcentaje": 0,
+      "impoconsumo_porcentaje": 0
     }
   ],
   "descuento_total": 0,
   "subtotal": 0,
   "iva": 0,
+  "impoconsumo": 0,
   "total": 0,
-  "notas": null
+  "notas": null,
+  "notas_revision": null
 }
 
-REGLAS CRÍTICAS PARA PRECIOS (léelas con atención):
+═══════════════════════════════════════════════════
+REGLA #3 — NOMBRE DEL PRODUCTO (LO MÁS IMPORTANTE)
+═══════════════════════════════════════════════════
 
-1. precio_unitario = precio por unidad ANTES de descuento, SIN IVA.
-2. descuento_unitario = descuento aplicado a ese ítem (ej: "Tu Ahorro" en Makro). 0 si no hay.
-3. subtotal = (precio_unitario - descuento_unitario) × cantidad. Es el valor NETO pagado por ese ítem.
-4. descuento_total = suma de todos los descuentos (ej: campo "Tu Ahorro" global, o suma de descuentos por ítem).
-5. subtotal (nivel factura) = suma de subtotales de ítems = total sin IVA y con descuentos.
-6. iva = IVA + impoconsumo (ICO) + cualquier impuesto adicional. Si aparece retención, NO restarla.
-7. total = valor TOTAL FINAL PAGADO. Debe cumplir: total ≈ subtotal + iva.
+3.1 — **NOMBRES PARTIDOS EN VARIAS LÍNEAS**: en tickets térmicos angostos el nombre suele cortarse. Pégalos.
+   Texto en la factura:
+     `6 UN (130082) Miso Shiro Naru   $ 154,800`
+     `             kome 1 kg`
+   Resultado correcto:
+     nombre = "Miso Shiro Naru kome"
+     cantidad = 6, unidad = "UN"
+     cantidad_empaque = 1000, unidad_empaque = "g"   (porque "1 kg" es el empaque)
 
-CASOS ESPECIALES:
-- Makro, Panamericana, PriceSmart: muestran "Tu Ahorro" por ítem. Extráelo en descuento_unitario.
-  El subtotal del ítem es el precio neto (ya con descuento). El total al final del ticket es el correcto.
-- Postobon, licores: precios por ítem SIN IVA. El IVA aparece al final. subtotal = precio sin IVA.
-- Recibos de caja menor / pagos de nómina / arriendos: no tienen ítems. Pon items=[], y el total pagado.
-- Si no puedes leer algún ítem, omítelo y anótalo en notas.
-- Todos los valores son enteros en COP (sin decimales, sin puntos de miles, sin comas).
+   Texto:
+     `4 UN (130021) Bisque de Lango   $ 540,000`
+     `             sta 1500 g`
+   Resultado:
+     nombre = "Bisque de Langosta"
+     cantidad_empaque = 1500, unidad_empaque = "g"
 
-VALIDACIÓN INTERNA (antes de responder): suma de item.subtotal ≈ subtotal de factura.
-subtotal + iva ≈ total. Si no cuadra, revisa y corrige.
+   Texto:
+     `30 UN (210065) Mayonesa Japone $ 480,000`
+     `              sa Ajinomoto 400 g`
+   Resultado:
+     nombre = "Mayonesa Japonesa Ajinomoto"
+     cantidad_empaque = 400, unidad_empaque = "g"
+
+3.2 — **NO incluyas códigos internos** (números entre paréntesis tipo `(130082)`) ni precios en el nombre.
+
+3.3 — **NO incluyas el peso/volumen del empaque en el nombre**: sácalo a `cantidad_empaque` / `unidad_empaque`.
+
+═══════════════════════════════════════════════════
+REGLA #4 — EMPAQUE (CRÍTICO para costeo)
+═══════════════════════════════════════════════════
+
+Cada ítem debe traer cuánto contiene **una unidad del empaque vendido**, normalizado:
+
+  • "1 kg"   → cantidad_empaque = 1000,  unidad_empaque = "g"
+  • "500 g"  → cantidad_empaque = 500,   unidad_empaque = "g"
+  • "1500 g" → cantidad_empaque = 1500,  unidad_empaque = "g"
+  • "1 lt"   → cantidad_empaque = 1000,  unidad_empaque = "ml"
+  • "750 ml" → cantidad_empaque = 750,   unidad_empaque = "ml"
+  • "400 g"  → cantidad_empaque = 400,   unidad_empaque = "g"
+
+Si NO aparece peso/volumen (ej. "Bolsa Plástica", "Servilleta"):
+  cantidad_empaque = 0, unidad_empaque = null
+
+Pistas para encontrar el empaque:
+  • En el NOMBRE del producto: "Aceite Girasol 1 L", "Pollo entero 1.8 kg".
+  • En la columna **Lista Empaque** o **Empaque** (facturas B2B Atlantic, Dislicores).
+  • En la columna **UM** (Unidad de Medida) — si dice "KG" significa que viene por kilo suelto, no por unidad de empaque fijo: en ese caso cantidad_empaque = 1000 si la cantidad facturada está en kg.
+  • Para licores: la presentación va con el producto ("Stella Artois 330ml", "Smirnoff 750ml").
+
+═══════════════════════════════════════════════════
+REGLA #5 — PRECIOS, IVA E IMPOCONSUMO
+═══════════════════════════════════════════════════
+
+5.1 — `precio_unitario` = precio por unidad ANTES de descuento, SIN IVA y SIN impoconsumo.
+5.2 — `descuento_unitario` = descuento aplicado a ese ítem (ej. "Tu Ahorro" en Makro). 0 si no hay.
+5.3 — `subtotal` del ítem = (precio_unitario − descuento_unitario) × cantidad.
+5.4 — `iva_porcentaje` = % de IVA del ítem (0, 5, 19). En licores muchas veces es 0%.
+5.5 — `impoconsumo_porcentaje` = % impoconsumo del ítem (0, 8). Aplica a bebidas alcohólicas.
+
+A nivel de factura:
+5.6 — `subtotal` = suma de subtotales de ítems (todo SIN IVA, SIN impoconsumo, ya con descuentos).
+5.7 — `iva` = IVA total facturado.
+5.8 — `impoconsumo` = impoconsumo total facturado (SEPARADO del IVA).
+5.9 — `descuento_total` = suma de descuentos.
+5.10 — `total` = valor TOTAL FINAL pagado. Debe cumplir: `total ≈ subtotal + iva + impoconsumo`.
+
+Si la factura NO separa IVA de impoconsumo, déjalos como mejor identifiques. Si no hay impoconsumo, ponlo en 0 (no lo mezcles con IVA).
+
+═══════════════════════════════════════════════════
+REGLA #6 — FACTURAS LARGAS (CAPTURA TODAS LAS LÍNEAS)
+═══════════════════════════════════════════════════
+
+En facturas B2B verás "TOTAL NRO LINEAS: 19" o "TOTAL LISTA EMPAQUE: 25" cerca del total. **Tu lista `items` DEBE tener ese número exacto de elementos.** Si solo lees N pero el documento dice X, vuelve a revisar — probablemente la factura tiene varias páginas o ítems en columnas que omitiste.
+
+═══════════════════════════════════════════════════
+REGLA #7 — NOTAS MANUSCRITAS Y SELLOS (¡CRÍTICO!)
+═══════════════════════════════════════════════════
+
+Si ves algo **escrito a mano** sobre la factura impresa (correcciones, recortes de cantidad, "se reciben solo X", una fecha de recepción diferente, un "FALTA", "DEVUELTO", etc.) **NO MODIFIQUES los números impresos**, pero PONLO ENTERO en `notas_revision`.
+
+Ejemplos:
+  • Manuscrito "Se reciben solamente 2 cajas de Stella" → notas_revision = "MANUSCRITO: Se recibieron solo 2 cajas de Stella (revisar cantidad real recibida vs facturada)"
+  • Sello "ACEPTADA" + firma con fecha 02/05/26 → notas_revision = "Aceptada el 2026-05-02 (sello manual)"
+  • Tachón sobre cantidad → notas_revision = "Hay un tachón sobre la cantidad del ítem N, verificar"
+
+Si no hay nada manuscrito ni sello relevante: notas_revision = null.
+
+═══════════════════════════════════════════════════
+REGLA #8 — CASOS ESPECIALES DE PROVEEDORES
+═══════════════════════════════════════════════════
+
+• **HIPERMAR (HICO FISH SAS) — recibo térmico angosto**:
+  Formato de línea: `qty UN (codigo) NombreProducto    $ valor_total_linea`
+  La segunda línea (indentada) es la **continuación del nombre** + posiblemente el peso/volumen.
+  El "valor_total_linea" es el subtotal SIN IVA del ítem (no el precio unitario).
+  Al final hay # BASE 19%, # IVA 19%, Subtotal, Impuestos, Total.
+
+• **DISLICORES — factura B2B de licores**:
+  Columnas: CÓDIGO BARRAS · REFERENCIA · CANT · DESCRIPCIÓN · % BASE UNIT · DESCT % · P UNIT ANTES IVA · % IVA · % CONSUMO · P FINAL UNIT · VLR NETO FINAL
+  • % IVA suele ser 0 en licores; % CONSUMO suele ser 8.
+  • Toma `P UNIT ANTES IVA` como `precio_unitario`.
+  • Toma `VLR NETO FINAL` como `subtotal` del ítem.
+
+• **ATLANTIC FS SAS — factura B2B de pescados/mariscos**:
+  Columnas: CÓDIGO EAN · CÓDIGO · DESCRIPCIÓN · LISTA EMPAQUE · UNIDADES · UM · $ UNITARIO · $ TOTAL · DESCUENTO % · IMPUESTOS-VENTAS % · VALOR TOTAL
+  • `UM` puede ser KG, UN, BTC (botella) → cópialo a `unidad` en minúsculas.
+  • Si UM = KG y UNIDADES = 2.000 → cantidad = 2.0, unidad = "kg", cantidad_empaque = 1000, unidad_empaque = "g".
+  • Verifica el "TOTAL NRO LINEAS" al pie y cuenta tus ítems.
+
+• **MAKRO / PRICESMART**: columna "Tu Ahorro" → descuento_unitario.
+• **Recibos de caja menor / pagos sueltos / arriendos**: items = [], descripción en `notas`.
+
+═══════════════════════════════════════════════════
+REGLA #9 — FORMATO DE NÚMEROS
+═══════════════════════════════════════════════════
+
+Todos los valores monetarios son enteros en COP, SIN puntos de miles, SIN comas, SIN decimales. Ej: `1116200` (no `1.116.200` ni `1,116,200.00`).
+
+`cantidad` y `cantidad_empaque` pueden tener decimales (ej. 1.5 kg → cantidad = 1.5).
+
+═══════════════════════════════════════════════════
+VALIDACIÓN INTERNA (antes de responder)
+═══════════════════════════════════════════════════
+
+1. ¿Suma de `item.subtotal` ≈ `subtotal` de factura?
+2. ¿`subtotal` + `iva` + `impoconsumo` ≈ `total`?
+3. ¿`items.length` coincide con "TOTAL NRO LINEAS" si aparece?
+4. ¿Ningún `nombre` tiene números pegados sin separar, ni códigos `(123456)`, ni `$`, ni el peso del empaque?
+5. ¿`cantidad_empaque` está en gramos o mililitros (unidad base), no en kilos ni litros?
+
+Si algo no cuadra, **vuelve a revisar la imagen y corrige antes de devolver el JSON**.
 """
 
 MEDIA_TYPES = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png",
@@ -79,11 +216,18 @@ def extract_invoice(image_path: Path, api_key: str, hint: str = "") -> dict:
 
     prompt = PROMPT
     if hint and hint.strip():
-        prompt += f"\n\n⚠️ CORRECCIÓN DEL USUARIO (máxima prioridad, úsala para corregir tu extracción):\n{hint.strip()}"
+        prompt += (
+            "\n\n═══════════════════════════════════════════════════\n"
+            "⚠️ CORRECCIÓN DEL USUARIO (máxima prioridad)\n"
+            "═══════════════════════════════════════════════════\n"
+            "Tienes una corrección explícita del humano que revisó la factura. "
+            "Úsala como verdad y reajusta tu extracción a partir de ella:\n\n"
+            f"{hint.strip()}"
+        )
 
     msg = client.messages.create(
-        model="claude-opus-4-5",
-        max_tokens=2048,
+        model="claude-sonnet-4-6",
+        max_tokens=4096,
         messages=[{
             "role": "user",
             "content": [content_block, {"type": "text", "text": prompt}],

@@ -144,6 +144,8 @@ class PrecioHistorial(Base):
     precio_unitario: Mapped[Decimal] = mapped_column(Numeric(14, 2))
     cantidad: Mapped[Decimal | None] = mapped_column(Numeric(14, 3), nullable=True)
     unidad: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    cantidad_empaque: Mapped[Decimal | None] = mapped_column(Numeric(14, 3), nullable=True)  # ej. 1000 (g/ml por unidad)
+    unidad_empaque: Mapped[str | None] = mapped_column(String(20), nullable=True)            # ej. "g", "ml"
     gasto_id: Mapped[int | None] = mapped_column(ForeignKey("gastos.id"), nullable=True)
 
     item: Mapped["CatalogoItem"] = relationship()

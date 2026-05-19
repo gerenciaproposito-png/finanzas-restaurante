@@ -69,6 +69,8 @@ def run_migrations() -> None:
     _add_column("ventas", "propinas",        "NUMERIC(14,2)", "0")
     _add_column("ventas", "notas",           "TEXT")
     _add_column("ventas_pendientes", "venta_id", "INTEGER")
+    _add_column("precio_historial", "cantidad_empaque", "NUMERIC(14,3)")
+    _add_column("precio_historial", "unidad_empaque",   "VARCHAR(20)")
     _seed_config("ventas_folder_url", "https://drive.google.com/drive/folders/10xnBG1cle8qDiguchf4vUli1MhWw4u8v?usp=drive_link")
     _seed_config("ventas_folder_id",  "10xnBG1cle8qDiguchf4vUli1MhWw4u8v")
     _seed_config("ventas_productos_folder_id",  "")
