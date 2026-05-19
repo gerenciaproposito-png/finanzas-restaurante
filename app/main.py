@@ -6,7 +6,8 @@ from pathlib import Path
 # Allow OAuth over http for local development
 os.environ.setdefault("OAUTHLIB_INSECURE_TRANSPORT", "1")
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -45,6 +46,11 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Finanzas Restaurante", lifespan=lifespan)
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    import traceback
+    return PlainTextResponse(f"ERROR DETALLADO:\n{traceback.format_exc()}", status_code=500)
 
 models.Base.metadata.create_all(bind=engine)
 from app.database import run_migrations
