@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}Ventas{% endblock %}
+{% block content %}
+
+<header class="page-header row">
+  <div>
+    <h1>Ventas</h1>
+    <p class="muted">Cierres de caja y reportes diarios</p>
+  </div>
+  <a class="btn primary" href="/ventas/nueva">+ Nueva venta</a>
+</header>
+
+{# ── Filtros ── #}
+<section class="panel filter-bar">
+  <form method="get" action="/ventas" class="filter-form">
+    <label>Desde <input type="date" name="desde" value="{{ desde }}"></label>
+    <label>Hasta  <input type="date" name="hasta" value="{{ hasta }}"></label>
+    <button type="submit" class="btn primary">Filtrar</button>
+    {% if desde or hasta %}
+    <a href="/ventas" class="btn">✕ Limpiar</a>
+    {% endif %}
+  </form>
+  {% if ventas %}
+  <div class="filter-total">
+    <span class="muted">{{ ventas|length }} registro(s)</span>
+    <span class="positive" style="font-family:Georgia,serif;font-size:15px;font-weight:700">
+      Total ventas: {{ tot_filtrado | cop }}
+    </span>
+  </div>
+  {% endif %}
+</section>
+
+{# ── Resumen KPIs del período ── #}
+{% if ventas %}
+<div class="cards" style="grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px">
+  <div class="card" style="padding:18px 16px">
+    <div class="card-label">Venta neta</div>
+    <div class="card-value" style="font-size:22px">{{ tot_neta | cop }}</div>
+  </div>
+  <div class="card" style="padding:18px 16px">
+    <div class="card-label">Impoconsumo 8%</div>
+    <div class="card-value" style="font-size:22px;color:var(--gold-light)">{{ tot_impo | cop }}</div>
+  </div>
+  <div class="card" style="padding:18px 16px">
+    <div class="card-label">💵 Efectivo</div>
+    <div class="card-value" style="font-size:22px">{{ tot_efectivo | cop }}</div>
+  </div>
+  <div class="card" style="padding:18px 16px">
+    <div class="card-label">💳 Datáfonos</div>
+    <div class="card-value" style="font-size:22px">{{ tot_datafonos | cop }}</div>
+  </div>
+  <div class="card" style="padding:18px 16px">
+    <div class="card-label">⟳ Transferencias</div>
+    <div class="card-value" style="font-size:22px">{{ tot_transf | cop }}</div>
+  </div>
+  <div class="card" style="padding:18px 16px">
+    <div class="card-label">Propinas</div>
+    <div class="card-value" style="font-size:22px;color:var(--muted)">{{ tot_propinas | cop }}</div>
+  </div>
+</div>
+
+{# ── Tabla detalle ── #}
+<section class="panel" style="border-radius:0 0 12px 12px;margin-top:0;border-top:none;overflow-x:auto">
+  <table style="min-width:1000px">
+    <thead>
+      <tr>
+        <th>Fecha</th>
+        <th>Turno</th>
+        <th class="num">Venta neta</th>
+        <th class="num" style="color:var(--gold-dark)">Impoconsumo</th>
+        <th class="num">💵 Efectivo</th>
+        <th class="num">💳 T. Débito</th>
+        <th class="num">💳 T. Crédito</th>
+        <th class="num">⟳ Transfer.</th>
+        <th class="num">🛵 Domicilio</th>
+        <th class="num">Propinas</th>
+        <th class="num" style="background:var(--chocolate);color:var(--cream)">Total ventas</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for v in ventas %}
+      {% set impo = v.impoconsumo if v.impoconsumo else 0 %}
+      {% set neta = v.total - impo %}
+      <tr>
+        <td style="white-space:nowrap;font-weight:600;color:var(--text)">{{ v.fecha }}</td>
+        <td>
+          {% if v.turno %}
+          <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:#fdf0d0;color:#7a4e10;font-weight:600">
+            {{ v.turno }}
+          </span>
+          {% else %}—{% endif %}
+        </td>
+        <td class="num" style="color:var(--text)">{{ neta | cop }}</td>
+        <td class="num" style="color:var(--gold-dark);font-weight:600">{{ impo | cop }}</td>
+
+        {# Medios de pago — muestra 0 si no tiene dato aún #}
+        <td class="num" style="color:{% if v.efectivo > 0 %}var(--positive){% else %}var(--muted){% endif %}">
+          {{ v.efectivo | cop if v.efectivo else '—' }}
+        </td>
+        <td class="num" style="color:{% if v.tarjeta_debito > 0 %}var(--text){% else %}var(--muted){% endif %}">
+          {{ v.tarjeta_debito | cop if v.tarjeta_debito else '—' }}
+        </td>
+        <td class="num" style="color:{% if v.tarjeta_credito > 0 %}var(--text){% else %}var(--muted){% endif %}">
+          {{ v.tarjeta_credito | cop if v.tarjeta_credito else '—' }}
+        </td>
+        <td class="num" style="color:{% if v.transferencia > 0 %}var(--text){% else %}var(--muted){% endif %}">
+          {{ v.transferencia | cop if v.transferencia else '—' }}
+        </td>
+        <td class="num" style="color:{% if v.domicilio > 0 %}var(--text){% else %}var(--muted){% endif %}">
+          {{ v.domicilio | cop if v.domicilio else '—' }}
+        </td>
+        <td class="num" style="color:var(--muted)">{{ v.propinas | cop if v.propinas else '—' }}</td>
+        <td class="num" style="background:#1e0e06;color:var(--gold-light);font-family:Georgia,serif;font-size:14px;font-weight:700">
+          {{ v.total | cop }}
+        </td>
+        <td style="white-space:nowrap">
+          <a class="btn" href="/ventas/{{ v.id }}/editar" style="padding:5px 12px;font-size:12px">Editar</a>
+          <form method="post" action="/ventas/{{ v.id }}/eliminar"
+                onsubmit="return confirm('¿Eliminar esta venta?')" style="display:inline">
+            <button class="btn-link danger" style="font-size:12px;margin-left:6px">Eliminar</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr style="background:var(--surface-warm);font-weight:700">
+        <td colspan="2" style="padding:12px 16px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px">TOTAL PERÍODO</td>
+        <td class="num" style="padding:12px 16px;font-family:Georgia,serif">{{ tot_neta | cop }}</td>
+        <td class="num" style="padding:12px 16px;font-family:Georgia,serif;color:var(--gold-dark)">{{ tot_impo | cop }}</td>
+        <td class="num" style="padding:12px 16px;font-family:Georgia,serif;color:var(--positive)">{{ tot_efectivo | cop }}</td>
+        <td class="num" style="padding:12px 16px;font-family:Georgia,serif">{{ tot_tdebito | cop }}</td>
+        <td class="num" style="padding:12px 16px;font-family:Georgia,serif">{{ tot_tcredito | cop }}</td>
+        <td class="num" style="padding:12px 16px;font-family:Georgia,serif">{{ tot_transf | cop }}</td>
+        <td class="num" style="padding:12px 16px;font-family:Georgia,serif">{{ tot_domicilio | cop }}</td>
+        <td class="num" style="padding:12px 16px;font-family:Georgia,serif;color:var(--muted)">{{ tot_propinas | cop }}</td>
+        <td class="num" style="padding:12px 16px;background:#1e0e06;color:var(--gold-light);font-family:Georgia,serif;font-size:15px">{{ tot_filtrado | cop }}</td>
+        <td></td>
+      </tr>
+    </tfoot>
+  </table>
+</section>
+
+{% else %}
+<div class="empty-state">
+  <p style="font-size:16px;font-weight:600">No hay ventas para el filtro seleccionado.</p>
+  <a class="btn primary" href="/ventas/nueva">+ Registrar venta</a>
+</div>
+{% endif %}
+
+{% endblock %}

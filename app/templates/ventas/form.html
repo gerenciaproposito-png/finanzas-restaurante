@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}{% if venta %}Editar venta{% else %}Nueva venta{% endif %}{% endblock %}
+{% block content %}
+
+<header class="page-header">
+  <h1>{% if venta %}Editar venta{% else %}Nueva venta{% endif %}</h1>
+  <p class="muted">Cierre de caja / total de un turno o día · {% if venta %}ID #{{ venta.id }}{% else %}nuevo registro{% endif %}</p>
+</header>
+
+<section class="panel">
+  <h2>Datos principales</h2>
+  <form method="post"
+        action="{% if venta %}/ventas/{{ venta.id }}/editar{% else %}/ventas/nueva{% endif %}"
+        class="form">
+
+    <label>Fecha *
+      <input type="date" name="fecha" value="{{ venta.fecha.isoformat() if venta else hoy }}" required>
+    </label>
+    <label>Turno
+      <select name="turno">
+        <option value="">— Sin turno —</option>
+        {% for val, label in turnos %}
+        <option value="{{ val }}" {% if venta and venta.turno == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label>Total ventas (sin propinas) *
+      <input type="number" id="f-total" name="total" step="1" min="0"
+             value="{{ venta.total|float if venta else '' }}" required oninput="recalcular()"
+             style="font-family:Georgia,serif;font-size:17px;font-weight:700">
+    </label>
+    <label>Propinas
+      <input type="number" id="f-propinas" name="propinas" step="1" min="0"
+             value="{{ venta.propinas|float if venta else 0 }}" oninput="recalcular()">
+    </label>
+
+    {# Desglose automático #}
+    <div class="full" style="background:var(--surface-warm);border-radius:8px;border:1px solid var(--border-light);padding:14px 16px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px">
+        Desglose automático (impoconsumo 8% incluido)
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px">Venta neta</div>
+          <div id="disp-neta" style="font-family:Georgia,serif;font-size:17px;font-weight:700">$ 0</div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px">Impoconsumo (8%)</div>
+          <div id="disp-impo" style="font-family:Georgia,serif;font-size:17px;font-weight:700;color:var(--gold-dark)">$ 0</div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px">Propinas</div>
+          <div id="disp-prop" style="font-family:Georgia,serif;font-size:17px;font-weight:700;color:var(--muted)">$ 0</div>
+        </div>
+      </div>
+      <input type="hidden" id="f-impoconsumo" name="impoconsumo" value="{{ venta.impoconsumo|float if venta else 0 }}">
+    </div>
+
+</div>
+</section>
+
+<section class="panel">
+  <h2>Desglose por medio de pago</h2>
+  <div class="form">
+    <label>💵 Efectivo
+      <input type="number" id="f-efectivo" name="efectivo" step="1" min="0"
+             value="{{ venta.efectivo|float if venta else 0 }}" oninput="recalcular()">
+    </label>
+    <label>💳 Tarjeta débito
+      <input type="number" id="f-tdebito" name="tarjeta_debito" step="1" min="0"
+             value="{{ venta.tarjeta_debito|float if venta else 0 }}" oninput="recalcular()">
+    </label>
+    <label>💳 Tarjeta crédito
+      <input type="number" id="f-tcredito" name="tarjeta_credito" step="1" min="0"
+             value="{{ venta.tarjeta_credito|float if venta else 0 }}" oninput="recalcular()">
+    </label>
+    <label>⟳ Transferencia
+      <input type="number" id="f-transf" name="transferencia" step="1" min="0"
+             value="{{ venta.transferencia|float if venta else 0 }}" oninput="recalcular()">
+    </label>
+    <label>🛵 Domicilios / Rappi
+      <input type="number" id="f-domicilio" name="domicilio" step="1" min="0"
+             value="{{ venta.domicilio|float if venta else 0 }}" oninput="recalcular()">
+    </label>
+
+    {# Totalizador inline #}
+    <div class="full">
+      <div class="totalizador">
+        <div class="tot-row">
+          <span style="font-size:12px">Σ Medios de pago</span>
+          <span class="tot-num" id="tot-suma">$ 0</span>
+        </div>
+        <div class="tot-row highlight" id="tot-row">
+          <span id="tot-label">Ventas + Propinas</span>
+          <span class="tot-num" id="tot-declarado">$ 0</span>
+        </div>
+        <div class="tot-row">
+          <span id="tot-estado" style="font-size:12px">—</span>
+          <span></span>
+        </div>
+      </div>
+    </div>
+
+    <label class="full">Notas
+      <textarea name="notas" rows="2"
+                placeholder="Observaciones del cierre, incidencias…">{{ venta.notas if venta else '' }}</textarea>
+    </label>
+    <div class="form-actions">
+      <a href="/ventas" class="btn">Cancelar</a>
+      <button type="submit" class="btn primary">Guardar venta</button>
+    </div>
+  </div>
+</section>
+
+<script>
+const IMPO_RATE = 8 / 108;
+function n(id) { return parseFloat(document.getElementById(id).value) || 0; }
+function fmt(v) { return '$ ' + Math.round(v).toLocaleString('es-CO'); }
+
+function recalcular() {
+  const total = n('f-total'), propinas = n('f-propinas');
+  const impo = Math.round(total * IMPO_RATE);
+  document.getElementById('disp-neta').textContent = fmt(total - impo);
+  document.getElementById('disp-impo').textContent = fmt(impo);
+  document.getElementById('disp-prop').textContent = fmt(propinas);
+  document.getElementById('f-impoconsumo').value = impo;
+
+  const medios = n('f-efectivo') + n('f-tdebito') + n('f-tcredito') + n('f-transf') + n('f-domicilio');
+  const declarado = total + propinas;
+  const diff = medios - declarado;
+  document.getElementById('tot-suma').textContent = fmt(medios);
+  document.getElementById('tot-declarado').textContent = fmt(declarado);
+
+  const row = document.getElementById('tot-row');
+  const est = document.getElementById('tot-estado');
+  if (Math.abs(diff) < 500) {
+    row.className = 'tot-row ok';
+    est.textContent = '✅ Cuadra';
+  } else if (diff > 0) {
+    row.className = 'tot-row warn';
+    est.textContent = '⚠️ Medios superan en ' + fmt(diff);
+  } else {
+    row.className = 'tot-row warn';
+    est.textContent = '⚠️ Faltan ' + fmt(Math.abs(diff)) + ' por asignar';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', recalcular);
+</script>
+
+{% endblock %}
