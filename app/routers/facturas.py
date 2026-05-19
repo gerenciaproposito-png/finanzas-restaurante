@@ -204,21 +204,32 @@ async def confirmar(
     unidades   = form.getlist("item_unidad")
     precios    = form.getlist("item_precio_unitario")
     descuentos = form.getlist("item_descuento_unitario")
+    cant_emp_s = form.getlist("item_cantidad_empaque")
+    unid_emp_s = form.getlist("item_unidad_empaque")
 
-    for nombre, cant_s, unidad, precio_s, desc_s in zip(
-        nombres, cantidades, unidades, precios,
-        descuentos + ["0"] * len(nombres)   # padding si faltan
-    ):
+    n = len(nombres)
+    def _at(lst, i, default=""):
+        return lst[i] if i < len(lst) else default
+
+    for i, nombre in enumerate(nombres):
         if not nombre or not nombre.strip():
             continue
         try:
-            precio_bruto = Decimal(precio_s or "0")
-            desc_unit    = Decimal(desc_s or "0")
+            precio_bruto = Decimal(_at(precios, i, "0") or "0")
+            desc_unit    = Decimal(_at(descuentos, i, "0") or "0")
             precio_neto  = precio_bruto - desc_unit   # lo que realmente se pagó
-            cantidad     = Decimal(cant_s or "1")
+            cantidad     = Decimal(_at(cantidades, i, "1") or "1")
         except Exception:
             continue
 
+        try:
+            cant_emp_raw = (_at(cant_emp_s, i, "0") or "0").strip()
+            cant_emp = Decimal(cant_emp_raw) if cant_emp_raw and cant_emp_raw != "0" else None
+        except Exception:
+            cant_emp = None
+        unid_emp = (_at(unid_emp_s, i, "") or "").strip().lower() or None
+
+        unidad = _at(unidades, i, "")
         item = _get_or_create_item(db, nombre, unidad or None)
         db.add(PrecioHistorial(
             item_id=item.id,
@@ -227,6 +238,8 @@ async def confirmar(
             precio_unitario=precio_neto,
             cantidad=cantidad,
             unidad=unidad or item.unidad,
+            cantidad_empaque=cant_emp,
+            unidad_empaque=unid_emp,
             gasto_id=gasto.id,
         ))
 
