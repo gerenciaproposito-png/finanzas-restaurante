@@ -235,6 +235,13 @@ async def confirmar(
     factura.estado = "confirmado"
     factura.gasto_id = gasto.id
     db.commit()
+
+    try:
+        from app.services.writeback import push_pending
+        push_pending(db)
+    except Exception:
+        pass
+
     return RedirectResponse("/facturas", status_code=303)
 
 

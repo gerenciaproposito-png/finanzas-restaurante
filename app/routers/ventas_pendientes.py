@@ -134,6 +134,13 @@ async def confirmar(vp_id: int, request: Request, db: Session = Depends(get_db))
             {"request": request, "error": str(e)},
             status_code=500,
         )
+
+    try:
+        from app.services.writeback import push_pending
+        push_pending(db)
+    except Exception:
+        pass
+
     return RedirectResponse("/ventas-pendientes", status_code=303)
 
 

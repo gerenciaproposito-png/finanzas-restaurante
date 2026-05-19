@@ -1,6 +1,6 @@
 from datetime import date, datetime
 from decimal import Decimal
-from sqlalchemy import String, Integer, Date, DateTime, Numeric, ForeignKey, Text, Boolean
+from sqlalchemy import String, Integer, Date, DateTime, Numeric, ForeignKey, Text, Boolean, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -195,3 +195,16 @@ class VentaProducto(Base):
     total: Mapped[Decimal] = mapped_column(Numeric(14, 2))
     fuente: Mapped[str | None] = mapped_column(String(50), nullable=True)  # upload, drive
     importado: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+
+class SheetsSyncLog(Base):
+    __tablename__ = "sheets_sync_log"
+    __table_args__ = (UniqueConstraint("tipo", "entidad_id", name="uq_sheets_tipo_entidad"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tipo: Mapped[str] = mapped_column(String(30), index=True)        # gasto, venta, venta_producto
+    entidad_id: Mapped[int] = mapped_column(Integer, index=True)
+    sheet_id: Mapped[str] = mapped_column(String(200))
+    tab: Mapped[str] = mapped_column(String(100))
+    fecha_sync: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    estado: Mapped[str] = mapped_column(String(20), default="ok")    # ok, error
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)

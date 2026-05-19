@@ -38,6 +38,8 @@ def vista(request: Request, db: Session = Depends(get_db)):
         "ventas_folder_id": cfg("ventas_folder_id"),
         "vp_folder_url": cfg("ventas_productos_folder_url"),
         "vp_folder_id": cfg("ventas_productos_folder_id"),
+        "sheets_destino_url": cfg("sheets_destino_url"),
+        "sheets_destino_id": cfg("sheets_destino_id"),
         "msg": request.query_params.get("msg", ""),
     })
 
@@ -138,3 +140,26 @@ def sincronizar_ventas_ahora():
     stats = run_sync_ventas()
     msg = f"sync_ventas_ok_{stats['nuevas']}_{stats['errores']}"
     return RedirectResponse(f"/ventas-pendientes?msg={msg}", status_code=303)
+
+
+@router.post("/sheets-destino")
+def guardar_sheets_destino(sheet_url: str = Form(...), db: Session = Depends(get_db)):
+    from app.services.sheets import extract_sheet_id
+    raw = sheet_url.strip()
+    sid = extract_sheet_id(raw)
+    if not sid:
+        return RedirectResponse("/configuracion?msg=sheets_url_invalida", status_code=303)
+    _set_cfg(db, "sheets_destino_url", raw)
+    _set_cfg(db, "sheets_destino_id", sid)
+    return RedirectResponse("/configuracion?msg=sheets_guardado", status_code=303)
+
+
+@router.post("/sheets-push")
+def sheets_push_ahora(db: Session = Depends(get_db)):
+    from app.services.writeback import push_pending
+    try:
+        stats = push_pending(db)
+    except Exception as e:
+        return RedirectResponse(f"/configuracion?msg=sheets_error_{str(e)[:60].replace(' ', '+')}", status_code=303)
+    msg = f"sheets_push_ok_{stats['gastos']}_{stats['ventas']}_{stats['ventas_productos']}_{stats['errores']}"
+    return RedirectResponse(f"/configuracion?msg={msg}", status_code=303)

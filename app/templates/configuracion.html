@@ -16,6 +16,12 @@
   {% elif msg.startswith('sync_ok') %}
     {% set parts = msg.split('_') %}
     ✅ Sincronización completa: {{ parts[2] }} nuevas facturas procesadas{% if parts[3] != '0' %}, {{ parts[3] }} errores{% endif %}.
+  {% elif msg == 'sheets_guardado' %}✅ Hoja de Google Sheets destino guardada.
+  {% elif msg == 'sheets_url_invalida' %}⚠️ La URL de la hoja no es válida.
+  {% elif msg.startswith('sheets_push_ok') %}
+    {% set parts = msg.split('_') %}
+    ✅ Enviado a Sheets: {{ parts[3] }} facturas, {{ parts[4] }} ventas, {{ parts[5] }} ventas-producto{% if parts[6] != '0' %}, {{ parts[6] }} errores{% endif %}.
+  {% elif msg.startswith('sheets_error') %}⚠️ Error al enviar a Sheets: {{ msg[13:] }}
   {% else %}{{ msg }}
   {% endif %}
 </div>
@@ -130,11 +136,50 @@
   </form>
 </section>
 
+<!-- HOJA DE GOOGLE SHEETS DESTINO -->
+<section class="panel">
+  <h2>5 · Hoja de Google Sheets para respaldo automático</h2>
+  <p class="muted">
+    Cada vez que confirmes una factura o un cierre de ventas, el sistema añadirá una fila a esta hoja
+    (pestañas <code>Facturas</code>, <code>Ventas</code> y <code>Ventas por producto</code>).
+    Si la pestaña no existe, se crea sola con sus encabezados.
+  </p>
+  <p class="muted">
+    Crea una hoja vacía en Google Sheets, ábrela y pega la URL aquí. Asegúrate de que la cuenta de Google
+    que conectaste arriba tenga acceso de edición a esta hoja.
+  </p>
+  <p class="muted" style="background:#fff8db;padding:8px;border-radius:6px;border:1px solid #e8d77a">
+    ⚠️ <strong>Importante:</strong> si ya tenías Google Drive conectado antes de esta actualización,
+    debes <strong>reconectar Google</strong> en el paso 2 para autorizar el permiso de escritura en Sheets.
+  </p>
+  <form method="post" action="/configuracion/sheets-destino" class="form" style="margin-top:8px">
+    <label class="full">URL de la hoja
+      <input type="url" name="sheet_url" value="{{ sheets_destino_url }}"
+             placeholder="https://docs.google.com/spreadsheets/d/..." required>
+    </label>
+    {% if sheets_destino_id %}
+    <p class="muted" style="grid-column:1/-1">ID actual: <code>{{ sheets_destino_id }}</code> ✅</p>
+    {% endif %}
+    <div class="form-actions"><button class="btn primary" type="submit">Guardar hoja destino</button></div>
+  </form>
+
+  {% if sheets_destino_id and drive_conectado %}
+  <form method="post" action="/configuracion/sheets-push" style="margin-top:12px">
+    <button class="btn" type="submit">📤 Enviar pendientes a la hoja ahora</button>
+  </form>
+  <p class="muted" style="margin-top:6px">
+    Esto sube todo lo que aún no se haya enviado. El robot automático también lo hace cada 10 minutos.
+  </p>
+  {% elif sheets_destino_id and not drive_conectado %}
+  <p class="muted" style="margin-top:12px">⚠️ Conecta Google Drive en el paso 2 para poder escribir a la hoja.</p>
+  {% endif %}
+</section>
+
 <!-- SINCRONIZAR -->
 {% if drive_conectado %}
 <section class="panel">
   <h2>Sincronización manual</h2>
-  <p class="muted">La sincronización automática corre al arrancar el servidor. Úsala aquí para forzarla.</p>
+  <p class="muted">El robot automático corre cada 10 minutos. Úsalo aquí para forzarlo.</p>
   <div style="display:flex;gap:12px;flex-wrap:wrap">
     {% if folder_id %}
     <form method="post" action="/configuracion/sincronizar">

@@ -1,5 +1,4 @@
 import json
-import time
 from datetime import datetime
 from pathlib import Path
 
@@ -86,9 +85,3 @@ def run_sync_ventas() -> dict:
     return stats
 
 
-def run_sync_ventas_background() -> None:
-    time.sleep(5)
-    try:
-        run_sync_ventas()
-    except Exception:
-        pass

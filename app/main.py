@@ -1,5 +1,4 @@
 import os
-import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -38,10 +37,8 @@ for _env_var, _filename in [
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    from app.services.sync import run_sync_background
-    from app.services.sync_ventas import run_sync_ventas_background
-    threading.Thread(target=run_sync_background, daemon=True).start()
-    threading.Thread(target=run_sync_ventas_background, daemon=True).start()
+    from app.services.scheduler import start as start_scheduler
+    start_scheduler()
     yield
 
 

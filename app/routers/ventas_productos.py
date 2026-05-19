@@ -113,6 +113,11 @@ async def importar(
             err = result["error"].replace(" ", "+")
             return RedirectResponse(f"/ventas-productos/importar?err={err}", status_code=303)
         n, nombre = result["filas"], result["archivo"]
+        try:
+            from app.services.writeback import push_pending
+            push_pending(db)
+        except Exception:
+            pass
         return RedirectResponse(
             f"/ventas-productos?fecha_corte={fc}&msg=ok_{n}_{nombre}",
             status_code=303,
@@ -134,6 +139,12 @@ async def importar(
         return RedirectResponse(f"/ventas-productos/importar?err={str(e)[:100]}", status_code=303)
     finally:
         tmp_path.unlink(missing_ok=True)
+
+    try:
+        from app.services.writeback import push_pending
+        push_pending(db)
+    except Exception:
+        pass
 
     return RedirectResponse(f"/ventas-productos?fecha_corte={fc}&msg=ok_{n}", status_code=303)
 

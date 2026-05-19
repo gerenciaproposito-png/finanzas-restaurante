@@ -10,7 +10,10 @@ from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 
-SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
+SCOPES = [
+    "https://www.googleapis.com/auth/drive.readonly",
+    "https://www.googleapis.com/auth/spreadsheets",
+]
 DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
 TOKEN_PATH = DATA_DIR / "google_token.json"
 CREDENTIALS_PATH = DATA_DIR / "google_credentials.json"

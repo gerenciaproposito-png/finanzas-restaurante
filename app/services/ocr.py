@@ -82,7 +82,7 @@ def extract_invoice(image_path: Path, api_key: str, hint: str = "") -> dict:
         prompt += f"\n\n⚠️ CORRECCIÓN DEL USUARIO (máxima prioridad, úsala para corregir tu extracción):\n{hint.strip()}"
 
     msg = client.messages.create(
-        model="claude-opus-4-5",
+        model="claude-sonnet-4-6",
         max_tokens=2048,
         messages=[{
             "role": "user",

@@ -1,5 +1,4 @@
 import json
-import time
 from datetime import datetime
 from pathlib import Path
 
@@ -86,10 +85,3 @@ def run_sync() -> dict:
     return stats
 
 
-def run_sync_background() -> None:
-    """Called in a daemon thread on app startup."""
-    time.sleep(3)  # wait for server to be fully up
-    try:
-        run_sync()
-    except Exception:
-        pass
