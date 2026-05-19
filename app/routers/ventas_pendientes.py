@@ -52,12 +52,18 @@ def revisar(vp_id: int, request: Request, db: Session = Depends(get_db)):
     datos = json.loads(vp.datos_json) if vp.datos_json else {}
 
     imagen_url = None
+    is_pdf = bool(vp.nombre_archivo and vp.nombre_archivo.lower().endswith(".pdf"))
+
     if vp.archivo_local:
         p = Path(vp.archivo_local)
         if p.exists():
             imagen_url = f"/uploads/ventas/{p.name}"
 
-    is_pdf = bool(vp.nombre_archivo and vp.nombre_archivo.lower().endswith(".pdf"))
+    if imagen_url is None and vp.drive_file_id:
+        if is_pdf:
+            imagen_url = f"https://drive.google.com/file/d/{vp.drive_file_id}/preview"
+        else:
+            imagen_url = f"https://drive.google.com/thumbnail?id={vp.drive_file_id}&sz=w1200"
 
     return request.app.state.templates.TemplateResponse("ventas_pendientes/revisar.html", {
         "request": request,
@@ -129,7 +135,7 @@ async def confirmar(vp_id: int, request: Request, db: Session = Depends(get_db))
 @router.post("/{vp_id}/reprocesar")
 def reprocesar(vp_id: int, db: Session = Depends(get_db)):
     vp = db.get(VentaPendiente, vp_id)
-    if not vp or not vp.archivo_local:
+    if not vp:
         return RedirectResponse("/ventas-pendientes", status_code=303)
 
     cfg = db.get(__import__("app.models", fromlist=["Configuracion"]).Configuracion, "anthropic_api_key")
@@ -139,14 +145,39 @@ def reprocesar(vp_id: int, db: Session = Depends(get_db)):
 
     from pathlib import Path as _Path
     from app.services.ocr_ventas import extract_venta
+    from app.services.sync_ventas import UPLOADS_DIR, MIME_EXT
+    from app.services import drive
     import json as _json
 
-    archivo = _Path(vp.archivo_local)
-    if not archivo.exists():
-        return RedirectResponse(
-            f"/ventas-pendientes/{vp_id}/revisar?err=El+archivo+no+está+disponible+en+este+servidor",
-            status_code=303,
-        )
+    # Determine file to process: use local if available, else re-download from Drive
+    archivo = _Path(vp.archivo_local) if vp.archivo_local else None
+    if not archivo or not archivo.exists():
+        if not vp.drive_file_id:
+            return RedirectResponse(
+                f"/ventas-pendientes/{vp_id}/revisar?err=Archivo+no+disponible",
+                status_code=303,
+            )
+        if not drive.is_connected():
+            return RedirectResponse(
+                f"/ventas-pendientes/{vp_id}/revisar?err=Google+Drive+no+conectado",
+                status_code=303,
+            )
+        try:
+            nombre = vp.nombre_archivo or ""
+            ext = ".jpg"
+            for mime, e in MIME_EXT.items():
+                if nombre.lower().endswith(e):
+                    ext = e
+                    break
+            UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+            archivo = UPLOADS_DIR / f"{vp.drive_file_id}{ext}"
+            drive.download_file(vp.drive_file_id, archivo)
+            vp.archivo_local = str(archivo)
+        except Exception as e:
+            return RedirectResponse(
+                f"/ventas-pendientes/{vp_id}/revisar?err={str(e)[:80]}",
+                status_code=303,
+            )
 
     try:
         datos = extract_venta(archivo, api_key)
