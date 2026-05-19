@@ -130,3 +130,18 @@ def download_file(file_id: str, dest: Path) -> None:
         done = False
         while not done:
             _, done = dl.next_chunk()
+
+
+def stream_file(file_id: str) -> tuple[bytes, str]:
+    """Download a Drive file to memory, return (bytes, mime_type)."""
+    import io
+    service = get_service()
+    meta = service.files().get(fileId=file_id, fields="mimeType,name").execute()
+    mime = meta.get("mimeType", "application/octet-stream")
+    req = service.files().get_media(fileId=file_id)
+    buf = io.BytesIO()
+    dl = MediaIoBaseDownload(buf, req)
+    done = False
+    while not done:
+        _, done = dl.next_chunk()
+    return buf.getvalue(), mime

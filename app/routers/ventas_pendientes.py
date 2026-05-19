@@ -4,7 +4,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -60,10 +60,7 @@ def revisar(vp_id: int, request: Request, db: Session = Depends(get_db)):
             imagen_url = f"/uploads/ventas/{p.name}"
 
     if imagen_url is None and vp.drive_file_id:
-        if is_pdf:
-            imagen_url = f"https://drive.google.com/file/d/{vp.drive_file_id}/preview"
-        else:
-            imagen_url = f"https://drive.google.com/thumbnail?id={vp.drive_file_id}&sz=w1200"
+        imagen_url = f"/ventas-pendientes/{vp_id}/imagen"
 
     return request.app.state.templates.TemplateResponse("ventas_pendientes/revisar.html", {
         "request": request,
@@ -130,6 +127,32 @@ async def confirmar(vp_id: int, request: Request, db: Session = Depends(get_db))
     vp.venta_id = venta.id
     db.commit()
     return RedirectResponse("/ventas-pendientes", status_code=303)
+
+
+@router.get("/{vp_id}/imagen")
+def imagen(vp_id: int, db: Session = Depends(get_db)):
+    vp = db.get(VentaPendiente, vp_id)
+    if not vp:
+        return Response(status_code=404)
+
+    # Serve from local file if available
+    if vp.archivo_local:
+        p = Path(vp.archivo_local)
+        if p.exists():
+            suffix = p.suffix.lower()
+            mime = "application/pdf" if suffix == ".pdf" else f"image/{suffix.lstrip('.') or 'jpeg'}"
+            return Response(content=p.read_bytes(), media_type=mime)
+
+    # Fall back to Drive proxy
+    if vp.drive_file_id:
+        from app.services import drive as _drive
+        try:
+            data, mime = _drive.stream_file(vp.drive_file_id)
+            return Response(content=data, media_type=mime)
+        except Exception:
+            pass
+
+    return Response(status_code=404)
 
 
 @router.post("/{vp_id}/reprocesar")
