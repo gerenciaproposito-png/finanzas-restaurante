@@ -169,6 +169,45 @@ REGLA #8 — CASOS ESPECIALES DE PROVEEDORES
   • Verifica el "TOTAL NRO LINEAS" al pie y cuenta tus ítems.
 
 • **MAKRO / PRICESMART**: columna "Tu Ahorro" → descuento_unitario.
+
+• **OLÍMPICA / JUSTO & BUENO / SAO / D1 / similares — recibos térmicos con descuentos en línea aparte**:
+  Formato típico:
+    ```
+    # CODIGO          IVA IPO  CANT  TOTAL_s/desc
+      Nombre Producto (continúa abajo)
+    Descuento XX,XX %                  VALOR-
+    ```
+  Ejemplo real:
+    ```
+    1  7700149400145   19  Ipo  1     169.800
+       Sarten 28Cm Freeh VerdeCOL697
+    Descuento 50,00 %                  84.900-
+    ```
+  Extracción correcta:
+    nombre = "Sartén 28cm Freeh Verde COL697"
+    cantidad = 1
+    precio_unitario = 169800        ← el TOTAL_s/desc dividido entre CANT
+    descuento_unitario = 84900      ← el VALOR del descuento dividido entre CANT
+    subtotal = 84900                 ← (precio_unitario − descuento_unitario) × cantidad
+
+  Otro ejemplo con cantidad > 1:
+    ```
+    2  7700149400138   19  0    5     524.600
+       Sarten 32Cm Freeh VerdeCOL697
+    Descuento 50,00 %                 262.250-
+    ```
+  Extracción:
+    cantidad = 5
+    precio_unitario = 104920        ← 524600 / 5
+    descuento_unitario = 52450      ← 262250 / 5
+    subtotal = 262350                ← 524600 − 262250
+
+  ⚠️ EN ESTE FORMATO ES OBLIGATORIO LEER LA LÍNEA "Descuento XX,XX %" QUE SIGUE A CADA PRODUCTO Y EXTRAERLA. Si la ignoras, los totales no cuadran y el cliente paga el doble en la app de lo que realmente pagó. Si dudas, calcula `subtotal = TOTAL_s/desc − valor_descuento` y verifica que la suma de subtotales coincida con el total final de la factura.
+
+  Si el descuento es **100,00 %**, el producto fue regalo: precio_unitario = TOTAL_s/desc / cantidad, descuento_unitario = igual, subtotal = 0.
+
+• **CUENTA LOS ÍTEMS POR EL NÚMERO DE FILA**: en recibos térmicos cada línea empieza con un número correlativo (1, 2, 3, 4, …). El último número que veas es la cantidad total de productos. Si la factura tiene 8 productos y solo lees 6, **vuelve a revisar** y captura los faltantes. NUNCA omitas un ítem.
+
 • **Recibos de caja menor / pagos sueltos / arriendos**: items = [], descripción en `notas`.
 
 ═══════════════════════════════════════════════════
