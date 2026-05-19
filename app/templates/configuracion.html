@@ -98,6 +98,22 @@
   </div>
 </section>
 
+<!-- CARPETA VENTAS POR PRODUCTO -->
+<section class="panel">
+  <h2>4 · Carpeta de Drive con Excel de ventas por producto</h2>
+  <p class="muted">Sube el Excel (.xlsx) de estadísticas de ventas a esta carpeta. Luego impórtalo desde <a href="/ventas-productos/importar">Ventas por producto → Importar</a>.</p>
+  <form method="post" action="/configuracion/folder-ventas-productos" class="form" style="margin-top:8px">
+    <label class="full">URL de la carpeta
+      <input type="url" name="folder_url" value="{{ vp_folder_url }}"
+             placeholder="https://drive.google.com/drive/folders/..." required>
+    </label>
+    {% if vp_folder_id %}
+    <p class="muted" style="grid-column:1/-1">ID actual: <code>{{ vp_folder_id }}</code> ✅</p>
+    {% endif %}
+    <div class="form-actions"><button class="btn primary" type="submit">Guardar carpeta</button></div>
+  </form>
+</section>
+
 <!-- CARPETA VENTAS -->
 <section class="panel">
   <h2>3 · Carpeta de Drive con reportes de ventas</h2>

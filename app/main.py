@@ -17,7 +17,7 @@ from app.utils import cop
 from app.routers import (
     dashboard, ventas, gastos, proveedores, categorias,
     configuracion, facturas, precios,
-    inventario, nomina, reportes, ventas_pendientes,
+    inventario, nomina, reportes, ventas_pendientes, ventas_productos,
 )
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -74,3 +74,4 @@ app.include_router(inventario.router)
 app.include_router(nomina.router)
 app.include_router(reportes.router)
 app.include_router(ventas_pendientes.router)
+app.include_router(ventas_productos.router)

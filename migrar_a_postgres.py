@@ -47,25 +47,45 @@ TABLES = [
     "drive_sync_log",
 ]
 
+# SQLite stores booleans as integers; cast these columns to bool before inserting into PostgreSQL
+BOOL_COLUMNS = {
+    "catalogo_items": ["activo"],
+}
+
 SrcSession = sessionmaker(bind=src_engine)
 DstSession = sessionmaker(bind=dst_engine)
 
 total_rows = 0
 with SrcSession() as src, DstSession() as dst:
+    # Limpiar todas las tablas respetando FK (truncate en orden inverso con CASCADE)
+    for table in reversed(TABLES):
+        try:
+            dst.execute(text(f"TRUNCATE TABLE {table} CASCADE"))
+        except Exception:
+            dst.rollback()
+    dst.commit()
+
     for table in TABLES:
         try:
             rows = src.execute(text(f"SELECT * FROM {table}")).mappings().all()
             if not rows:
                 print(f"  {table}: vacío, omitido")
                 continue
-            # Limpiar destino y reinsertar
-            dst.execute(text(f"DELETE FROM {table}"))
+            bool_cols = BOOL_COLUMNS.get(table, [])
+            def convert(r):
+                d = dict(r)
+                for col in bool_cols:
+                    if col in d and d[col] is not None:
+                        d[col] = bool(d[col])
+                return d
+            data = [convert(r) for r in rows]
             dst.execute(text(f"INSERT INTO {table} ({', '.join(rows[0].keys())}) VALUES ({', '.join(':' + k for k in rows[0].keys())})"),
-                        [dict(r) for r in rows])
+                        data)
             dst.commit()
             print(f"  ✓ {table}: {len(rows)} filas migradas")
             total_rows += len(rows)
         except Exception as e:
+            dst.rollback()
             print(f"  ✗ {table}: {e}")
 
 print(f"\nMigración completada: {total_rows} filas en total.")

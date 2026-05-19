@@ -67,6 +67,8 @@ def run_migrations() -> None:
     _add_column("ventas", "domicilio",       "NUMERIC(14,2)", "0")
     _seed_config("ventas_folder_url", "https://drive.google.com/drive/folders/10xnBG1cle8qDiguchf4vUli1MhWw4u8v?usp=drive_link")
     _seed_config("ventas_folder_id",  "10xnBG1cle8qDiguchf4vUli1MhWw4u8v")
+    _seed_config("ventas_productos_folder_id",  "")
+    _seed_config("ventas_productos_folder_url", "")
 
 
 def get_db():

@@ -36,6 +36,8 @@ def vista(request: Request, db: Session = Depends(get_db)):
         "folder_id": cfg("drive_folder_id"),
         "ventas_folder_url": cfg("ventas_folder_url"),
         "ventas_folder_id": cfg("ventas_folder_id"),
+        "vp_folder_url": cfg("ventas_productos_folder_url"),
+        "vp_folder_id": cfg("ventas_productos_folder_id"),
         "msg": request.query_params.get("msg", ""),
     })
 
@@ -104,6 +106,14 @@ def debug_drive(db: Session = Depends(get_db)):
         "archivos": [{"name": f["name"], "mimeType": f["mimeType"]} for f in files],
         "error": error,
     }
+
+
+@router.post("/folder-ventas-productos")
+def guardar_folder_ventas_productos(folder_url: str = Form(...), db: Session = Depends(get_db)):
+    folder_id = folder_url.strip().rstrip("/").split("/")[-1].split("?")[0]
+    _set_cfg(db, "ventas_productos_folder_url", folder_url.strip())
+    _set_cfg(db, "ventas_productos_folder_id", folder_id)
+    return RedirectResponse("/configuracion?msg=ventas_productos_folder_guardado", status_code=303)
 
 
 @router.post("/folder-ventas")

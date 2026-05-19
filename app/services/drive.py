@@ -132,6 +132,20 @@ def download_file(file_id: str, dest: Path) -> None:
             _, done = dl.next_chunk()
 
 
+def list_excel_in_folder(folder_id: str) -> list[dict]:
+    service = get_service()
+    if not service:
+        return []
+    xlsx_mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    results = service.files().list(
+        q=f"'{folder_id}' in parents and mimeType='{xlsx_mime}' and trashed=false",
+        fields="files(id,name,mimeType,modifiedTime)",
+        orderBy="modifiedTime desc",
+        pageSize=20,
+    ).execute()
+    return results.get("files", [])
+
+
 def stream_file(file_id: str) -> tuple[bytes, str]:
     """Download a Drive file to memory, return (bytes, mime_type)."""
     import io

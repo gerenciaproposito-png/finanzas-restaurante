@@ -19,7 +19,8 @@
       <a href="/reportes" class="{% if request.url.path.startswith('/reportes') %}active{% endif %}">Reportes</a>
 
       <div class="nav-group-label">Registros</div>
-      <a href="/ventas" class="{% if request.url.path.startswith('/ventas') %}active{% endif %}">Ventas</a>
+      <a href="/ventas" class="{% if request.url.path.startswith('/ventas') and not request.url.path.startswith('/ventas-p') %}active{% endif %}">Ventas</a>
+      <a href="/ventas-productos" class="{% if request.url.path.startswith('/ventas-productos') %}active{% endif %}">Ventas por producto</a>
       <a href="/gastos" class="{% if request.url.path.startswith('/gastos') %}active{% endif %}">Gastos</a>
       <a href="/inventario" class="{% if request.url.path.startswith('/inventario') %}active{% endif %}">Inventario</a>
       <a href="/nomina" class="{% if request.url.path.startswith('/nomina') %}active{% endif %}">Nómina</a>

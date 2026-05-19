@@ -182,3 +182,16 @@ class FacturaPendiente(Base):
     fecha_sync: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     estado: Mapped[str] = mapped_column(String(20), default="pendiente")  # pendiente, confirmado, descartado
     gasto_id: Mapped[int | None] = mapped_column(ForeignKey("gastos.id"), nullable=True)
+
+
+class VentaProducto(Base):
+    __tablename__ = "ventas_productos"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    fecha_corte: Mapped[date] = mapped_column(Date, index=True)
+    negocio: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    categoria: Mapped[str] = mapped_column(String(150), index=True)
+    producto: Mapped[str] = mapped_column(String(300))
+    cantidad: Mapped[int] = mapped_column(Integer)
+    total: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+    fuente: Mapped[str | None] = mapped_column(String(50), nullable=True)  # upload, drive
+    importado: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)

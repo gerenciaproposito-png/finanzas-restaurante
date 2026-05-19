@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Importar Ventas por Producto{% endblock %}
+{% block content %}
+
+<header class="page-header row">
+  <div><h1>Importar Ventas por Producto</h1></div>
+  <a href="/ventas-productos" class="btn">← Volver</a>
+</header>
+
+{% if err %}
+<div class="alert alert-error">{{ err }}</div>
+{% endif %}
+{% if msg and msg.startswith('ok_') %}
+{% set parts = msg.split('_') %}
+<div class="alert alert-ok">✅ {{ parts[1] }} productos importados.</div>
+{% endif %}
+
+<!-- Subir archivo -->
+<section class="panel">
+  <h2>Subir archivo Excel</h2>
+  <form method="post" action="/ventas-productos/importar" enctype="multipart/form-data" class="form">
+    <input type="hidden" name="fuente" value="upload">
+    <label>Fecha de corte *
+      <input type="date" name="fecha_corte" required value="{{ hoy }}">
+    </label>
+    <label>Archivo Excel (.xlsx)
+      <input type="file" name="archivo" accept=".xlsx" required>
+    </label>
+    <label style="grid-column:1/-1;display:flex;align-items:center;gap:8px;font-weight:normal">
+      <input type="checkbox" name="reemplazar" value="1">
+      Reemplazar datos existentes para esta fecha
+    </label>
+    <div class="form-actions">
+      <button class="btn primary">Importar archivo</button>
+    </div>
+  </form>
+</section>
+
+<!-- Desde Drive -->
+<section class="panel">
+  <h2>Desde Google Drive</h2>
+  {% if drive_conectado %}
+    <p class="muted">Se descargará el archivo .xlsx más reciente de la carpeta configurada.</p>
+    {% if folder_id %}
+    <p class="muted">Carpeta: <code>{{ folder_id }}</code>
+      {% if folder_url %}<a href="{{ folder_url }}" target="_blank" style="margin-left:8px;font-size:12px">Abrir en Drive ↗</a>{% endif %}
+    </p>
+    <form method="post" action="/ventas-productos/importar" class="form">
+      <input type="hidden" name="fuente" value="drive">
+      <label>Fecha de corte *
+        <input type="date" name="fecha_corte" required value="{{ hoy }}">
+      </label>
+      <label style="grid-column:1/-1;display:flex;align-items:center;gap:8px;font-weight:normal">
+        <input type="checkbox" name="reemplazar" value="1">
+        Reemplazar datos existentes para esta fecha
+      </label>
+      <div class="form-actions">
+        <button class="btn primary">Importar desde Drive</button>
+      </div>
+    </form>
+    {% else %}
+    <p class="muted" style="color:var(--negative)">
+      No hay carpeta configurada.
+      <a href="/configuracion">Configúrala en Configuración →</a>
+    </p>
+    {% endif %}
+  {% else %}
+    <p class="muted">Drive no está conectado. <a href="/configuracion">Conectar en Configuración →</a></p>
+  {% endif %}
+</section>
+
+<!-- Historial de cortes -->
+{% if fechas %}
+<section class="panel">
+  <h2>Cortes importados</h2>
+  <table>
+    <thead>
+      <tr><th>Fecha de corte</th><th class="num">Productos</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for fc, cnt in fechas %}
+      <tr>
+        <td><a href="/ventas-productos?fecha_corte={{ fc }}">{{ fc.strftime('%d/%m/%Y') }}</a></td>
+        <td class="num">{{ cnt }}</td>
+        <td style="text-align:right">
+          <form method="post" action="/ventas-productos/eliminar-corte"
+                onsubmit="return confirm('¿Eliminar todos los datos del corte {{ fc.strftime('%d/%m/%Y') }}?')">
+            <input type="hidden" name="fecha_corte" value="{{ fc }}">
+            <button class="btn-link" style="color:var(--negative);font-size:12px">Eliminar</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
+{% endblock %}

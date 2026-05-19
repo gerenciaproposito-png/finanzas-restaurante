@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Ventas por Producto{% endblock %}
+{% block content %}
+
+<header class="page-header row">
+  <div>
+    <h1>Ventas por Producto</h1>
+    {% if fecha_sel %}
+    <p class="muted">Corte al {{ fecha_sel.strftime('%d/%m/%Y') }}</p>
+    {% else %}
+    <p class="muted">Sin datos importados</p>
+    {% endif %}
+  </div>
+  <a href="/ventas-productos/importar" class="btn primary">Importar Excel</a>
+</header>
+
+{% set msg = request.query_params.get('msg') %}
+{% if msg and msg.startswith('ok_') %}
+{% set parts = msg.split('_') %}
+<div class="alert alert-ok">✅ Importación exitosa: {{ parts[1] }} productos cargados{% if parts|length > 2 %} desde {{ parts[2:] | join('_') }}{% endif %}.</div>
+{% endif %}
+
+<!-- Filtros -->
+<section class="panel" style="padding:14px 16px">
+  <form method="get" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+    <label style="flex:0 0 auto">
+      <span class="muted" style="font-size:11px;display:block;margin-bottom:4px">CORTE</span>
+      <select name="fecha_corte" onchange="this.form.submit()" style="min-width:160px">
+        {% if not fechas %}
+        <option>Sin datos</option>
+        {% endif %}
+        {% for fc, cnt in fechas %}
+        <option value="{{ fc }}" {% if fc == fecha_sel %}selected{% endif %}>
+          {{ fc.strftime('%d/%m/%Y') }} ({{ cnt }} productos)
+        </option>
+        {% endfor %}
+      </select>
+    </label>
+    <label style="flex:0 0 auto">
+      <span class="muted" style="font-size:11px;display:block;margin-bottom:4px">CATEGORÍA</span>
+      <select name="categoria" onchange="this.form.submit()" style="min-width:160px">
+        <option value="">Todas las categorías</option>
+        {% for c in categorias_list %}
+        <option value="{{ c }}" {% if c == categoria_filtro %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    {% if categoria_filtro %}
+    <a href="/ventas-productos?fecha_corte={{ fecha_sel }}" class="btn" style="font-size:12px">✕ Limpiar filtro</a>
+    {% endif %}
+    <div style="margin-left:auto;text-align:right">
+      <div style="font-size:22px;font-weight:700;color:var(--positive)">{{ total_ingresos | cop }}</div>
+      <div class="muted" style="font-size:12px">{{ total_unidades }} unidades vendidas</div>
+    </div>
+  </form>
+</section>
+
+{% if not resumen %}
+<div class="empty-state">
+  <p>No hay datos para este corte.</p>
+  <a href="/ventas-productos/importar" class="btn primary">Importar Excel</a>
+</div>
+{% else %}
+
+{% for cat, data in resumen.items() %}
+<section class="panel" style="margin-bottom:12px;padding:0;overflow:hidden">
+  <div class="row" style="padding:10px 16px;background:var(--surface-warm);border-bottom:1px solid var(--border-light)">
+    <strong style="font-size:14px;text-transform:uppercase;letter-spacing:.5px">{{ cat }}</strong>
+    <span class="muted" style="font-size:13px">{{ data.unidades }} uds · {{ data.total | cop }}</span>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Producto</th>
+        <th class="num">Unidades</th>
+        <th class="num">Total</th>
+        <th class="num">% ingresos</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in data.productos %}
+      <tr>
+        <td>{{ p.producto }}</td>
+        <td class="num">{{ p.cantidad }}</td>
+        <td class="num">{{ p.total | cop }}</td>
+        <td class="num" style="color:var(--muted);font-size:12px">
+          {% if total_ingresos > 0 %}{{ "%.1f"|format((p.total / total_ingresos * 100) | float) }}%{% else %}—{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr style="font-weight:600;background:var(--surface-warm)">
+        <td>Total {{ cat }}</td>
+        <td class="num">{{ data.unidades }}</td>
+        <td class="num">{{ data.total | cop }}</td>
+        <td class="num" style="color:var(--muted);font-size:12px">
+          {% if total_ingresos > 0 %}{{ "%.1f"|format((data.total / total_ingresos * 100) | float) }}%{% endif %}
+        </td>
+      </tr>
+    </tfoot>
+  </table>
+</section>
+{% endfor %}
+
+{% endif %}
+{% endblock %}
