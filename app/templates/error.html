@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Error{% endblock %}
+{% block content %}
+<header class="page-header">
+  <h1>Error</h1>
+</header>
+<section class="panel">
+  <pre style="white-space:pre-wrap;word-break:break-all;color:var(--negative)">{{ error }}</pre>
+  <div style="margin-top:16px">
+    <a href="javascript:history.back()" class="btn">← Volver</a>
+  </div>
+</section>
+{% endblock %}

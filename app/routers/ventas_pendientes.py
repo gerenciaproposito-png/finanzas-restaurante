@@ -106,26 +106,34 @@ async def confirmar(vp_id: int, request: Request, db: Session = Depends(get_db))
     else:
         metodo_pago = None
 
-    venta = Venta(
-        fecha=fecha,
-        turno=turno,
-        total=total,
-        impoconsumo=impoconsumo,
-        efectivo=efectivo,
-        tarjeta_debito=tarjeta_debito,
-        tarjeta_credito=tarjeta_credito,
-        transferencia=transferencia,
-        domicilio=domicilio,
-        metodo_pago=metodo_pago,
-        propinas=propinas,
-        notas=notas or None,
-    )
-    db.add(venta)
-    db.flush()
+    try:
+        venta = Venta(
+            fecha=fecha,
+            turno=turno,
+            total=total,
+            impoconsumo=impoconsumo,
+            efectivo=efectivo,
+            tarjeta_debito=tarjeta_debito,
+            tarjeta_credito=tarjeta_credito,
+            transferencia=transferencia,
+            domicilio=domicilio,
+            metodo_pago=metodo_pago,
+            propinas=propinas,
+            notas=notas or None,
+        )
+        db.add(venta)
+        db.flush()
 
-    vp.estado = "confirmado"
-    vp.venta_id = venta.id
-    db.commit()
+        vp.estado = "confirmado"
+        vp.venta_id = venta.id
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        return request.app.state.templates.TemplateResponse(
+            "error.html",
+            {"request": request, "error": str(e)},
+            status_code=500,
+        )
     return RedirectResponse("/ventas-pendientes", status_code=303)
 
 
