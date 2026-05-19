@@ -141,8 +141,15 @@ def reprocesar(vp_id: int, db: Session = Depends(get_db)):
     from app.services.ocr_ventas import extract_venta
     import json as _json
 
+    archivo = _Path(vp.archivo_local)
+    if not archivo.exists():
+        return RedirectResponse(
+            f"/ventas-pendientes/{vp_id}/revisar?err=El+archivo+no+está+disponible+en+este+servidor",
+            status_code=303,
+        )
+
     try:
-        datos = extract_venta(_Path(vp.archivo_local), api_key)
+        datos = extract_venta(archivo, api_key)
         if isinstance(datos, list):
             datos = datos[0] if datos else {}
         vp.datos_json = _json.dumps(datos, ensure_ascii=False)
